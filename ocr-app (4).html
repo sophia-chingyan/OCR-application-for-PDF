@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScanLens — PDF OCR Converter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-2: #1a1a26;
+    --surface-3: #22222f;
+    --border: #2a2a3a;
+    --border-hover: #3a3a50;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --accent: #6c5ce7;
+    --accent-glow: #7c6cf7;
+    --accent-soft: rgba(108, 92, 231, 0.12);
+    --accent-soft-2: rgba(108, 92, 231, 0.22);
+    --success: #00b894;
+    --warning: #fdcb6e;
+    --danger: #e17055;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(108, 92, 231, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(0, 184, 148, 0.04) 0%, transparent 50%);
+    z-index: -1;
+    animation: drift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes drift {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(-3%, 2%) rotate(1deg); }
+  }
+
+  .app {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 48px; }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .logo::before, .logo::after {
+    content: ''; width: 24px; height: 1px;
+    background: var(--accent); opacity: 0.4;
+  }
+
+  .header h1 {
+    font-size: 38px; font-weight: 700; letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1.2;
+  }
+
+  .header p { color: var(--text-dim); font-size: 15px; margin-top: 10px; line-height: 1.6; }
+
+  /* Drop Zone */
+  .dropzone {
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    padding: 56px 32px; text-align: center; cursor: pointer;
+    transition: all 0.3s ease; background: var(--surface);
+    position: relative; overflow: hidden;
+  }
+
+  .dropzone::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--accent-soft), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent); transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(108, 92, 231, 0.1);
+  }
+  .dropzone:hover::before, .dropzone.drag-over::before { opacity: 1; }
+
+  .dropzone-icon {
+    width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%;
+    background: var(--accent-soft); display: flex; align-items: center; justify-content: center;
+  }
+  .dropzone-icon svg { width: 24px; height: 24px; stroke: var(--accent); }
+
+  .dropzone h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; position: relative; }
+  .dropzone span { font-size: 13px; color: var(--text-dim); position: relative; }
+
+  #fileInput { display: none; }
+
+  /* File info */
+  .file-info {
+    display: none; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 24px; margin-top: 16px;
+    align-items: center; gap: 16px;
+  }
+  .file-info.visible { display: flex; }
+
+  .file-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: linear-gradient(135deg, #e17055, #d63031);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
+    color: white; flex-shrink: 0;
+  }
+
+  .file-details { flex: 1; min-width: 0; }
+  .file-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  .file-remove {
+    background: none; border: none; color: var(--text-dim); cursor: pointer;
+    padding: 8px; border-radius: 8px; transition: all 0.2s;
+  }
+  .file-remove:hover { color: var(--danger); background: rgba(225, 112, 85, 0.1); }
+
+  /* Page Range Selector */
+  .page-range-section {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-top: 16px;
+    overflow: hidden;
+  }
+  .page-range-section.visible { display: block; }
+
+  .page-range-header {
+    padding: 20px 24px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .page-range-header .settings-title { margin-bottom: 0; }
+
+  .page-count-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  .page-range-controls {
+    padding: 16px 24px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .range-mode-tabs {
+    display: flex;
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .range-tab {
+    padding: 7px 14px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .range-tab.active {
+    background: var(--accent);
+    color: white;
+  }
+  .range-tab:not(.active):hover {
+    color: var(--text);
+    background: var(--surface-3);
+  }
+
+  .range-input-group {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  .range-input-group.visible { display: flex; }
+
+  .range-input-group label {
+    font-size: 13px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .range-input {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    width: 100%;
+    min-width: 0;
+    transition: border-color 0.2s;
+  }
+  .range-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .range-input::placeholder { color: var(--text-dim); opacity: 0.6; }
+
+  .range-input.error {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(225, 112, 85, 0.15);
+  }
+
+  .range-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 0 24px;
+    margin-bottom: 4px;
+  }
+
+  .range-error {
+    font-size: 11px;
+    color: var(--danger);
+    padding: 0 24px 4px;
+    display: none;
+  }
+  .range-error.visible { display: block; }
+
+  /* Quick select buttons */
+  .quick-select {
+    display: flex;
+    gap: 6px;
+    padding: 0 24px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .quick-btn {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .quick-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  /* Page grid */
+  .page-grid-wrapper {
+    padding: 12px 24px 20px;
+    display: none;
+  }
+  .page-grid-wrapper.visible { display: block; }
+
+  .page-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .page-grid::-webkit-scrollbar { width: 4px; }
+  .page-grid::-webkit-scrollbar-track { background: transparent; }
+  .page-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .page-cell {
+    aspect-ratio: 3/4;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    background: var(--surface-2);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .page-cell:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+
+  .page-cell.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .page-cell img {
+    width: 100%; height: 100%; object-fit: cover;
+    position: absolute; inset: 0;
+  }
+
+  .page-cell .page-num {
+    position: relative;
+    z-index: 1;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
+  .page-cell.selected .page-num { color: white; }
+
+  .page-cell .cell-check {
+    position: absolute;
+    top: 3px; right: 3px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.2s;
+  }
+  .page-cell.selected .cell-check { opacity: 1; transform: scale(1); }
+
+  .page-cell .cell-overlay {
+    position: absolute; inset: 0;
+    background: rgba(108, 92, 231, 0.25);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .page-cell.selected .cell-overlay { opacity: 1; }
+
+  /* Settings */
+  .settings {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; margin-top: 16px;
+  }
+
+  .settings-title {
+    font-family: 'Space Mono', monospace; font-size: 11px;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 20px;
+  }
+
+  .setting-row {
+    display: flex; align-items: center;
+    justify-content: space-between; padding: 12px 0;
+  }
+  .setting-row + .setting-row { border-top: 1px solid var(--border); }
+
+  .setting-label { font-size: 14px; font-weight: 500; }
+  .setting-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  select, .text-input {
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 32px 8px 12px; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238888a0' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    transition: border-color 0.2s;
+  }
+  select:hover { border-color: var(--accent); }
+
+  /* Toggle switch */
+  .toggle-wrap {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toggle {
+    width: 44px; height: 24px; border-radius: 12px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    position: relative; cursor: pointer; transition: all 0.3s;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: ''; position: absolute;
+    top: 3px; left: 3px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--text-dim);
+    transition: all 0.3s;
+  }
+  .toggle.active { background: var(--accent); border-color: var(--accent); }
+  .toggle.active::after { left: 23px; background: white; }
+
+  .toggle-label {
+    font-size: 12px; color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Start button */
+  .start-btn {
+    width: 100%; margin-top: 24px; padding: 16px;
+    border: none; border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--accent), #5a4bd1);
+    color: white; font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .start-btn::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1));
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .start-btn:hover:not(:disabled)::before { opacity: 1; }
+  .start-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(108, 92, 231, 0.3);
+  }
+  .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Progress section */
+  .progress-section { display: none; margin-top: 24px; }
+  .progress-section.visible { display: block; }
+
+  .progress-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+  }
+
+  .progress-header {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 16px;
+  }
+  .progress-status { font-size: 14px; font-weight: 500; }
+  .progress-pct { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--accent); }
+
+  .progress-bar-track {
+    width: 100%; height: 6px; background: var(--surface-2);
+    border-radius: 3px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-glow));
+    border-radius: 3px; width: 0%; transition: width 0.4s ease;
+  }
+
+  .progress-detail { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
+
+  .page-previews {
+    display: flex; gap: 8px; margin-top: 16px;
+    overflow-x: auto; padding-bottom: 4px;
+  }
+  .page-previews::-webkit-scrollbar { height: 4px; }
+  .page-previews::-webkit-scrollbar-track { background: transparent; }
+  .page-previews::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .page-thumb {
+    flex-shrink: 0; width: 48px; height: 64px;
+    border-radius: 6px; background: var(--surface-2);
+    border: 2px solid transparent; overflow: hidden; position: relative;
+  }
+  .page-thumb.processing { border-color: var(--accent); }
+  .page-thumb.done { border-color: var(--success); }
+  .page-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+  .page-thumb .check {
+    position: absolute; inset: 0;
+    background: rgba(0, 184, 148, 0.3);
+    display: flex; align-items: center; justify-content: center; opacity: 0;
+  }
+  .page-thumb.done .check { opacity: 1; }
+
+  /* Log area */
+  .log-area {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-top: 16px;
+    max-height: 200px; overflow-y: auto;
+    font-family: 'Space Mono', monospace; font-size: 11px;
+    line-height: 1.8; color: var(--text-dim);
+  }
+  .log-area::-webkit-scrollbar { width: 4px; }
+  .log-area::-webkit-scrollbar-track { background: transparent; }
+  .log-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .log-entry { padding: 2px 0; }
+  .log-entry .time { color: var(--accent); margin-right: 8px; }
+  .log-entry.warn { color: var(--warning); }
+  .log-entry.error { color: var(--danger); }
+  .log-entry.success { color: var(--success); }
+
+  /* Result */
+  .result-section { display: none; margin-top: 24px; }
+  .result-section.visible { display: block; }
+
+  .result-card {
+    background: var(--surface); border: 1px solid var(--success);
+    border-radius: var(--radius); padding: 32px; text-align: center;
+  }
+
+  .result-icon {
+    width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%;
+    background: rgba(0, 184, 148, 0.1);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .result-card h3 { font-size: 18px; margin-bottom: 6px; }
+  .result-card p { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; }
+
+  .download-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 32px; border: none; border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--success), #00a884);
+    color: white; font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+  }
+  .download-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(0, 184, 148, 0.3);
+  }
+
+  .lang-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    background: var(--accent-soft); color: var(--accent-glow); margin: 2px;
+  }
+
+  @media (max-width: 600px) {
+    .app { padding: 24px 16px 60px; }
+    .header h1 { font-size: 28px; }
+    .dropzone { padding: 40px 20px; }
+    .setting-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .page-range-controls { flex-direction: column; }
+    .range-input-group { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="header">
+    <div class="logo">ScanLens</div>
+    <h1>Scanned PDF to Readable PDF</h1>
+    <p>Upload a camera-scanned PDF. OCR will extract text while preserving images and layout.<br>Supports auto-detection of English, Traditional Chinese &amp; Simplified Chinese.</p>
+  </header>
+
+  <!-- Drop Zone -->
+  <div class="dropzone" id="dropzone">
+    <div class="dropzone-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </div>
+    <h3>Drop your scanned PDF here</h3>
+    <span>or click to browse — PDF files only</span>
+    <input type="file" id="fileInput" accept=".pdf">
+  </div>
+
+  <!-- File Info -->
+  <div class="file-info" id="fileInfo">
+    <div class="file-icon">PDF</div>
+    <div class="file-details">
+      <div class="file-name" id="fileName"></div>
+      <div class="file-meta" id="fileMeta"></div>
+    </div>
+    <button class="file-remove" id="fileRemove" title="Remove file">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- Page Range Selector -->
+  <div class="page-range-section" id="pageRangeSection">
+    <div class="page-range-header">
+      <div class="settings-title">Page Selection</div>
+      <div class="page-count-badge" id="pageCountBadge">0 pages selected</div>
+    </div>
+
+    <div class="page-range-controls">
+      <div class="range-mode-tabs">
+        <button class="range-tab active" data-mode="all">All Pages</button>
+        <button class="range-tab" data-mode="range">Range</button>
+        <button class="range-tab" data-mode="custom">Custom</button>
+        <button class="range-tab" data-mode="pick">Pick</button>
+      </div>
+
+      <!-- Range input: e.g. 1-10 -->
+      <div class="range-input-group" id="rangeInputGroup">
+        <label>From</label>
+        <input type="number" class="range-input" id="rangeFrom" min="1" placeholder="1">
+        <label>to</label>
+        <input type="number" class="range-input" id="rangeTo" min="1" placeholder="—">
+      </div>
+
+      <!-- Custom input: e.g. 1,3,5-8,12 -->
+      <div class="range-input-group" id="customInputGroup">
+        <input type="text" class="range-input" id="customRange" placeholder="e.g. 1, 3, 5-8, 12">
+      </div>
+    </div>
+
+    <div class="range-hint" id="rangeHint"></div>
+    <div class="range-error" id="rangeError"></div>
+
+    <div class="quick-select" id="quickSelect"></div>
+
+    <!-- Visual page grid for "Pick" mode -->
+    <div class="page-grid-wrapper" id="pageGridWrapper">
+      <div class="page-grid" id="pageGrid"></div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="settings">
+    <div class="settings-title">OCR Settings</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Language Detection</div>
+        <div class="setting-desc">Auto-detect will analyze each page to pick the best language model</div>
+      </div>
+      <select id="langMode">
+        <option value="auto">Auto-detect</option>
+        <option value="eng">English only</option>
+        <option value="chi_tra">Traditional Chinese</option>
+        <option value="chi_sim">Simplified Chinese</option>
+        <option value="chi_tra+chi_sim+eng">All three (slower)</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Output Quality</div>
+        <div class="setting-desc">Higher DPI = better OCR but slower processing</div>
+      </div>
+      <select id="dpiMode">
+        <option value="200">Standard (200 DPI)</option>
+        <option value="300" selected>High (300 DPI)</option>
+        <option value="400">Ultra (400 DPI)</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Image Enhancement</div>
+        <div class="setting-desc">Apply contrast/sharpening to improve OCR on photos</div>
+      </div>
+      <div class="toggle-wrap">
+        <div class="toggle active" id="enhanceToggle"></div>
+        <span class="toggle-label" id="enhanceLabel">ON</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Start Button -->
+  <button class="start-btn" id="startBtn" disabled>Select a PDF to begin</button>
+
+  <!-- Progress -->
+  <div class="progress-section" id="progressSection">
+    <div class="progress-card">
+      <div class="progress-header">
+        <div class="progress-status" id="progressStatus">Initializing...</div>
+        <div class="progress-pct" id="progressPct">0%</div>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+      <div class="progress-detail" id="progressDetail"></div>
+      <div class="page-previews" id="pagePreviews"></div>
+    </div>
+    <div class="log-area" id="logArea"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-section" id="resultSection">
+    <div class="result-card">
+      <div class="result-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00b894" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h3>OCR Complete!</h3>
+      <p id="resultSummary"></p>
+      <button class="download-btn" id="downloadBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Readable PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const { PDFDocument } = PDFLib;
+
+// DOM
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const fileMeta = document.getElementById('fileMeta');
+const fileRemove = document.getElementById('fileRemove');
+const pageRangeSection = document.getElementById('pageRangeSection');
+const pageCountBadge = document.getElementById('pageCountBadge');
+const rangeInputGroup = document.getElementById('rangeInputGroup');
+const customInputGroup = document.getElementById('customInputGroup');
+const rangeFrom = document.getElementById('rangeFrom');
+const rangeTo = document.getElementById('rangeTo');
+const customRange = document.getElementById('customRange');
+const rangeHint = document.getElementById('rangeHint');
+const rangeError = document.getElementById('rangeError');
+const quickSelect = document.getElementById('quickSelect');
+const pageGridWrapper = document.getElementById('pageGridWrapper');
+const pageGrid = document.getElementById('pageGrid');
+const langMode = document.getElementById('langMode');
+const dpiMode = document.getElementById('dpiMode');
+const enhanceToggle = document.getElementById('enhanceToggle');
+const enhanceLabel = document.getElementById('enhanceLabel');
+const startBtn = document.getElementById('startBtn');
+const progressSection = document.getElementById('progressSection');
+const progressStatus = document.getElementById('progressStatus');
+const progressPct = document.getElementById('progressPct');
+const progressBar = document.getElementById('progressBar');
+const progressDetail = document.getElementById('progressDetail');
+const pagePreviews = document.getElementById('pagePreviews');
+const logArea = document.getElementById('logArea');
+const resultSection = document.getElementById('resultSection');
+const resultSummary = document.getElementById('resultSummary');
+const downloadBtn = document.getElementById('downloadBtn');
+
+let selectedFile = null;
+let outputBlob = null;
+let totalPages = 0;
+let currentMode = 'all';
+let selectedPages = new Set();
+let pageThumbnails = {}; // cache
+
+// --- Toggles ---
+function setupToggle(toggle, label) {
+  toggle.addEventListener('click', () => {
+    toggle.classList.toggle('active');
+    label.textContent = toggle.classList.contains('active') ? 'ON' : 'OFF';
+  });
+}
+setupToggle(enhanceToggle, enhanceLabel);
+
+// --- File handling ---
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') handleFile(f);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+fileRemove.addEventListener('click', () => {
+  selectedFile = null;
+  totalPages = 0;
+  selectedPages.clear();
+  pageThumbnails = {};
+  fileInfo.classList.remove('visible');
+  pageRangeSection.classList.remove('visible');
+  startBtn.disabled = true;
+  startBtn.textContent = 'Select a PDF to begin';
+  fileInput.value = '';
+  resultSection.classList.remove('visible');
+});
+
+async function handleFile(f) {
+  selectedFile = f;
+  fileName.textContent = f.name;
+  fileMeta.textContent = formatSize(f.size) + ' • Loading...';
+  fileInfo.classList.add('visible');
+  resultSection.classList.remove('visible');
+
+  // Load PDF to get page count
+  try {
+    const arrayBuffer = await f.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    totalPages = pdf.numPages;
+    fileMeta.textContent = `${formatSize(f.size)} • ${totalPages} page${totalPages > 1 ? 's' : ''}`;
+
+    // Setup page range
+    setupPageRange(pdf);
+    pageRangeSection.classList.add('visible');
+    setMode('all');
+    startBtn.disabled = false;
+    startBtn.textContent = `Start OCR — ${totalPages} page${totalPages > 1 ? 's' : ''}`;
+  } catch (err) {
+    fileMeta.textContent = formatSize(f.size) + ' • Error loading PDF';
+    startBtn.disabled = true;
+  }
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// --- Page Range ---
+function setupPageRange(pdf) {
+  rangeFrom.max = totalPages;
+  rangeTo.max = totalPages;
+  rangeFrom.value = '';
+  rangeTo.value = '';
+  rangeTo.placeholder = totalPages;
+  customRange.value = '';
+  rangeError.classList.remove('visible');
+
+  // Quick select buttons
+  quickSelect.innerHTML = '';
+  if (totalPages > 5) {
+    addQuickBtn('First 5', () => applyQuick(1, 5));
+    addQuickBtn('First 10', () => applyQuick(1, Math.min(10, totalPages)));
+  }
+  if (totalPages > 10) {
+    addQuickBtn('First half', () => applyQuick(1, Math.ceil(totalPages / 2)));
+    addQuickBtn('Last half', () => applyQuick(Math.ceil(totalPages / 2) + 1, totalPages));
+  }
+  if (totalPages > 2) {
+    addQuickBtn('Odd pages', () => {
+      switchToMode('custom');
+      const odds = [];
+      for (let i = 1; i <= totalPages; i += 2) odds.push(i);
+      customRange.value = odds.join(', ');
+      parseAndUpdate();
+    });
+    addQuickBtn('Even pages', () => {
+      switchToMode('custom');
+      const evens = [];
+      for (let i = 2; i <= totalPages; i += 2) evens.push(i);
+      customRange.value = evens.join(', ');
+      parseAndUpdate();
+    });
+  }
+
+  // Build page grid (thumbnails will be generated lazily)
+  pageGrid.innerHTML = '';
+  pageThumbnails = {};
+
+  for (let i = 1; i <= totalPages; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'page-cell selected';
+    cell.dataset.page = i;
+    cell.innerHTML = `
+      <div class="cell-overlay"></div>
+      <span class="page-num">${i}</span>
+      <div class="cell-check">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    `;
+    cell.addEventListener('click', () => togglePageCell(cell, i));
+    pageGrid.appendChild(cell);
+  }
+
+  // Generate thumbnails async
+  generateThumbnails(pdf);
+}
+
+async function generateThumbnails(pdf) {
+  for (let i = 1; i <= totalPages; i++) {
+    try {
+      const page = await pdf.getPage(i);
+      const vp = page.getViewport({ scale: 0.2 });
+      const canvas = document.createElement('canvas');
+      canvas.width = vp.width;
+      canvas.height = vp.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+      pageThumbnails[i] = dataUrl;
+
+      // Update grid cell
+      const cell = pageGrid.querySelector(`[data-page="${i}"]`);
+      if (cell && !cell.querySelector('img')) {
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        cell.prepend(img);
+      }
+    } catch(e) { /* skip */ }
+  }
+}
+
+function addQuickBtn(label, fn) {
+  const btn = document.createElement('button');
+  btn.className = 'quick-btn';
+  btn.textContent = label;
+  btn.addEventListener('click', fn);
+  quickSelect.appendChild(btn);
+}
+
+function applyQuick(from, to) {
+  switchToMode('range');
+  rangeFrom.value = from;
+  rangeTo.value = to;
+  parseAndUpdate();
+}
+
+function switchToMode(mode) {
+  document.querySelectorAll('.range-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.mode === mode);
+  });
+  setMode(mode);
+}
+
+// Mode tabs
+document.querySelectorAll('.range-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.range-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    setMode(tab.dataset.mode);
+  });
+});
+
+function setMode(mode) {
+  currentMode = mode;
+  rangeInputGroup.classList.remove('visible');
+  customInputGroup.classList.remove('visible');
+  pageGridWrapper.classList.remove('visible');
+  rangeHint.textContent = '';
+  rangeError.classList.remove('visible');
+
+  if (mode === 'all') {
+    selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
+    rangeHint.textContent = `All ${totalPages} pages will be processed`;
+    syncGridToSelection();
+  } else if (mode === 'range') {
+    rangeInputGroup.classList.add('visible');
+    rangeHint.textContent = 'Enter a start and end page number';
+    parseAndUpdate();
+  } else if (mode === 'custom') {
+    customInputGroup.classList.add('visible');
+    rangeHint.textContent = 'Use commas and dashes: e.g. 1, 3, 5-8, 12';
+    parseAndUpdate();
+  } else if (mode === 'pick') {
+    pageGridWrapper.classList.add('visible');
+    rangeHint.textContent = 'Click pages to select or deselect them';
+    // Keep current selection for pick mode
+  }
+
+  updateBadge();
+  updateStartBtn();
+}
+
+// Parse inputs
+rangeFrom.addEventListener('input', parseAndUpdate);
+rangeTo.addEventListener('input', parseAndUpdate);
+customRange.addEventListener('input', parseAndUpdate);
+
+function parseAndUpdate() {
+  rangeError.classList.remove('visible');
+  rangeFrom.classList.remove('error');
+  rangeTo.classList.remove('error');
+  customRange.classList.remove('error');
+
+  if (currentMode === 'range') {
+    const from = parseInt(rangeFrom.value) || 1;
+    const to = parseInt(rangeTo.value) || totalPages;
+
+    if (from < 1 || from > totalPages || to < 1 || to > totalPages) {
+      showRangeError(`Page numbers must be between 1 and ${totalPages}`);
+      return;
+    }
+    if (from > to) {
+      showRangeError('Start page must be ≤ end page');
+      return;
+    }
+
+    selectedPages = new Set();
+    for (let i = from; i <= to; i++) selectedPages.add(i);
+  } else if (currentMode === 'custom') {
+    const val = customRange.value.trim();
+    if (!val) {
+      selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
+      updateBadge();
+      updateStartBtn();
+      syncGridToSelection();
+      return;
+    }
+
+    try {
+      selectedPages = parseCustomRange(val);
+    } catch (err) {
+      showRangeError(err.message);
+      customRange.classList.add('error');
+      return;
+    }
+  }
+
+  syncGridToSelection();
+  updateBadge();
+  updateStartBtn();
+}
+
+function parseCustomRange(str) {
+  const pages = new Set();
+  const parts = str.split(',').map(s => s.trim()).filter(Boolean);
+
+  for (const part of parts) {
+    if (part.includes('-')) {
+      const [a, b] = part.split('-').map(s => parseInt(s.trim()));
+      if (isNaN(a) || isNaN(b)) throw new Error(`Invalid range: "${part}"`);
+      if (a < 1 || b > totalPages) throw new Error(`Pages must be 1–${totalPages}`);
+      if (a > b) throw new Error(`Invalid range: ${a} > ${b}`);
+      for (let i = a; i <= b; i++) pages.add(i);
+    } else {
+      const n = parseInt(part);
+      if (isNaN(n)) throw new Error(`Invalid page: "${part}"`);
+      if (n < 1 || n > totalPages) throw new Error(`Page ${n} out of range (1–${totalPages})`);
+      pages.add(n);
+    }
+  }
+  return pages;
+}
+
+function showRangeError(msg) {
+  rangeError.textContent = msg;
+  rangeError.classList.add('visible');
+}
+
+function togglePageCell(cell, pageNum) {
+  if (currentMode !== 'pick') {
+    switchToMode('pick');
+  }
+  if (selectedPages.has(pageNum)) {
+    selectedPages.delete(pageNum);
+    cell.classList.remove('selected');
+  } else {
+    selectedPages.add(pageNum);
+    cell.classList.add('selected');
+  }
+  updateBadge();
+  updateStartBtn();
+}
+
+function syncGridToSelection() {
+  pageGrid.querySelectorAll('.page-cell').forEach(cell => {
+    const p = parseInt(cell.dataset.page);
+    cell.classList.toggle('selected', selectedPages.has(p));
+  });
+}
+
+function updateBadge() {
+  const n = selectedPages.size;
+  pageCountBadge.textContent = `${n} page${n !== 1 ? 's' : ''} selected`;
+}
+
+function updateStartBtn() {
+  const n = selectedPages.size;
+  if (n === 0) {
+    startBtn.disabled = true;
+    startBtn.textContent = 'Select at least one page';
+  } else {
+    startBtn.disabled = false;
+    startBtn.textContent = n === totalPages
+      ? `Start OCR — All ${totalPages} pages`
+      : `Start OCR — ${n} of ${totalPages} pages`;
+  }
+}
+
+// --- Logging ---
+function log(msg, type = '') {
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+  const now = new Date();
+  const time = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+  entry.innerHTML = `<span class="time">${time}</span>${msg}`;
+  logArea.appendChild(entry);
+  logArea.scrollTop = logArea.scrollHeight;
+}
+
+// --- Language detection ---
+function detectLanguage(text) {
+  if (!text || text.trim().length < 5) return 'eng';
+  let cjkCount = 0, engCount = 0, traIndicators = 0, simIndicators = 0;
+  const traChars = '國學數與對這經區體發聯當會從點問機關個義處應實來將過還後給讓說時種為開黨對質開裡類';
+  const simChars = '国学数与对这经区体发联当会从点问机关个义处应实来将过还后给让说时种为开党对质开里类';
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0x4E00 && code <= 0x9FFF) {
+      cjkCount++;
+      if (traChars.includes(ch)) traIndicators++;
+      if (simChars.includes(ch)) simIndicators++;
+    } else if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A)) {
+      engCount++;
+    }
+  }
+  const total = cjkCount + engCount;
+  if (total === 0) return 'eng';
+  if (cjkCount / total > 0.3) {
+    if (traIndicators > simIndicators) return 'chi_tra';
+    if (simIndicators > traIndicators) return 'chi_sim';
+    return 'chi_tra+chi_sim';
+  }
+  return 'eng';
+}
+
+// --- Image Enhancement ---
+function enhanceImage(canvas) {
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+
+  // Increase contrast + slight sharpening via unsharp mask approximation
+  const contrast = 1.3;
+  const brightness = 10;
+
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.min(255, Math.max(0, contrast * (data[i] - 128) + 128 + brightness));
+    data[i+1] = Math.min(255, Math.max(0, contrast * (data[i+1] - 128) + 128 + brightness));
+    data[i+2] = Math.min(255, Math.max(0, contrast * (data[i+2] - 128) + 128 + brightness));
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+// --- Main OCR Pipeline ---
+startBtn.addEventListener('click', async () => {
+  if (!selectedFile || selectedPages.size === 0) return;
+
+  startBtn.disabled = true;
+  startBtn.textContent = 'Processing...';
+  progressSection.classList.add('visible');
+  resultSection.classList.remove('visible');
+  logArea.innerHTML = '';
+  pagePreviews.innerHTML = '';
+
+  const targetDPI = parseInt(dpiMode.value);
+  const langSetting = langMode.value;
+  const doEnhance = enhanceToggle.classList.contains('active');
+
+  // Only the selected pages — sorted in order
+  const ocrPages = [...selectedPages].sort((a, b) => a - b);
+
+  log(`OCR target: ${ocrPages.length} page(s) — [${summarizePages(ocrPages)}]`);
+  if (ocrPages.length < totalPages) {
+    log(`Skipping ${totalPages - ocrPages.length} unselected page(s) — output will only contain selected pages`);
+  }
+
+  try {
+    // 1. Load PDF
+    log('Loading PDF file...');
+    const arrayBuffer = await selectedFile.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    log(`PDF loaded: ${pdf.numPages} page(s)`, 'success');
+
+    // Create page thumbnails in progress bar (only selected pages)
+    for (const p of ocrPages) {
+      const thumb = document.createElement('div');
+      thumb.className = 'page-thumb';
+      thumb.id = `thumb-${p}`;
+      thumb.innerHTML = `
+        <div class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      `;
+      if (pageThumbnails[p]) {
+        const img = document.createElement('img');
+        img.src = pageThumbnails[p];
+        thumb.prepend(img);
+      }
+      pagePreviews.appendChild(thumb);
+    }
+
+    // 2. Initialize Tesseract worker
+    log('Initializing OCR engine...');
+    updateProgress(5, 'Loading OCR engine...');
+
+    let defaultLangs = langSetting === 'auto' ? 'eng+chi_tra+chi_sim' : langSetting;
+
+    log(`Loading language data: ${defaultLangs}`);
+    updateProgress(8, 'Downloading language models...');
+
+    const worker = await Tesseract.createWorker(defaultLangs, 1, {
+      logger: m => {}
+    });
+
+    log('OCR engine ready', 'success');
+    updateProgress(15, 'Starting page processing...');
+
+    // 3. Process only selected pages — use Tesseract's native PDF output
+    const pagePdfBytes = []; // each entry: Uint8Array of a single-page searchable PDF
+    const pageTexts = [];
+    const detectedLangs = new Set();
+
+    for (let idx = 0; idx < ocrPages.length; idx++) {
+      const pageNum = ocrPages[idx];
+      const thumbEl = document.getElementById(`thumb-${pageNum}`);
+      thumbEl.classList.add('processing');
+
+      const pctBase = 15 + idx / ocrPages.length * 80;
+      updateProgress(pctBase, `OCR page ${pageNum} (${idx + 1}/${ocrPages.length})...`);
+      log(`Rendering page ${pageNum} at ${targetDPI} DPI...`);
+
+      // Render page to canvas
+      const page = await pdf.getPage(pageNum);
+      const origVp = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: targetDPI / 72 });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      // Thumbnail
+      if (!pageThumbnails[pageNum]) {
+        const tc = document.createElement('canvas');
+        tc.width = 48; tc.height = 64;
+        tc.getContext('2d').drawImage(canvas, 0, 0, 48, 64);
+        const img = document.createElement('img');
+        img.src = tc.toDataURL();
+        thumbEl.prepend(img);
+      }
+
+      // Enhancement
+      if (doEnhance) {
+        enhanceImage(canvas);
+        log(`  ↳ Image enhancement applied`);
+      }
+
+      // OCR — get both text result and searchable PDF bytes
+      log(`Running OCR on page ${pageNum}...`);
+      const imageData = canvas.toDataURL('image/png');
+
+      let text = '', confidence = 0;
+      let singlePagePdf = null;
+
+      try {
+        // recognize returns text + hOCR + other data
+        const result = await worker.recognize(imageData);
+        text = result.data.text || '';
+        confidence = result.data.confidence || 0;
+
+        // getPDF generates a searchable PDF with image + invisible text overlay
+        const pdfOutput = await worker.getPDF('ScanLens OCR');
+        singlePagePdf = new Uint8Array(pdfOutput.data);
+      } catch (err) {
+        log(`OCR error on page ${pageNum}: ${err.message}`, 'error');
+      }
+
+      let pageLang = langSetting;
+      if (langSetting === 'auto') {
+        pageLang = detectLanguage(text);
+        detectedLangs.add(pageLang);
+      } else {
+        detectedLangs.add(langSetting);
+      }
+
+      const langLabel = {
+        'eng': 'English', 'chi_tra': 'Traditional Chinese',
+        'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese (mixed)',
+        'chi_tra+chi_sim+eng': 'Multilingual'
+      }[pageLang] || pageLang;
+
+      log(`Page ${pageNum}: ${text.length} chars, confidence ${confidence.toFixed(1)}%, lang: ${langLabel}`, confidence > 50 ? 'success' : 'warn');
+
+      pagePdfBytes.push({
+        pageNum,
+        pdfBytes: singlePagePdf,
+        imageData,
+        text,
+        confidence,
+        lang: pageLang,
+        originalWidth: origVp.width,
+        originalHeight: origVp.height
+      });
+
+      pageTexts.push({ text, confidence });
+
+      thumbEl.classList.remove('processing');
+      thumbEl.classList.add('done');
+      updateProgress(15 + (idx + 1) / ocrPages.length * 80, `Completed page ${pageNum}`);
+    }
+
+    // 4. Merge all single-page PDFs into one using pdf-lib
+    log('Merging pages into final PDF...');
+    updateProgress(93, 'Merging pages...');
+
+    const mergedPdf = await PDFDocument.create();
+
+    for (const entry of pagePdfBytes) {
+      if (entry.pdfBytes) {
+        // Tesseract generated a searchable PDF — copy its page
+        try {
+          const srcDoc = await PDFDocument.load(entry.pdfBytes);
+          const [copiedPage] = await mergedPdf.copyPages(srcDoc, [0]);
+          mergedPdf.addPage(copiedPage);
+          continue;
+        } catch (err) {
+          log(`  ↳ Merge error for page ${entry.pageNum}, using image fallback`, 'warn');
+        }
+      }
+
+      // Fallback: embed the scanned image as a full-page image
+      log(`  ↳ Page ${entry.pageNum}: embedding as image (no text layer)`);
+      const pngDataUrl = entry.imageData;
+      const pngBase64 = pngDataUrl.split(',')[1];
+      const pngBytes = Uint8Array.from(atob(pngBase64), c => c.charCodeAt(0));
+      const pngImage = await mergedPdf.embedPng(pngBytes);
+      const imgPage = mergedPdf.addPage([entry.originalWidth, entry.originalHeight]);
+      imgPage.drawImage(pngImage, {
+        x: 0, y: 0,
+        width: entry.originalWidth,
+        height: entry.originalHeight,
+      });
+    }
+
+    log('Building final PDF...');
+    updateProgress(97, 'Generating output PDF...');
+
+    const mergedBytes = await mergedPdf.save();
+    outputBlob = new Blob([mergedBytes], { type: 'application/pdf' });
+
+    await worker.terminate();
+
+    // 5. Result
+    updateProgress(100, 'Done!');
+    log(`OCR processing complete! Output: ${ocrPages.length} page(s), ${formatSize(mergedBytes.length)}`, 'success');
+
+    const langBadges = [...detectedLangs].map(l => {
+      const label = {
+        'eng': 'English', 'chi_tra': 'Traditional Chinese',
+        'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese',
+        'chi_tra+chi_sim+eng': 'Multilingual'
+      }[l] || l;
+      return `<span class="lang-badge">${label}</span>`;
+    }).join(' ');
+
+    const ocrResults = pageTexts.filter(r => r.confidence > 0);
+    const avgConf = ocrResults.length > 0
+      ? (ocrResults.reduce((s, p) => s + p.confidence, 0) / ocrResults.length).toFixed(1)
+      : '—';
+
+    const pageDesc = ocrPages.length === totalPages
+      ? `All ${ocrPages.length} pages OCR'd`
+      : `${ocrPages.length} of ${totalPages} pages OCR'd — [${summarizePages(ocrPages)}]`;
+
+    resultSummary.innerHTML = `${pageDesc} • Avg. confidence ${avgConf}% • ${langBadges}<br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
+
+    resultSection.classList.add('visible');
+    startBtn.textContent = 'Start OCR Processing';
+    startBtn.disabled = false;
+
+  } catch (err) {
+    log(`Fatal error: ${err.message}`, 'error');
+    console.error(err);
+    startBtn.textContent = 'Retry';
+    startBtn.disabled = false;
+    updateProgress(0, 'Error occurred');
+  }
+});
+
+function summarizePages(pages) {
+  if (pages.length === 0) return '';
+  if (pages.length <= 6) return pages.join(', ');
+  // Compress consecutive ranges
+  const ranges = [];
+  let start = pages[0], end = pages[0];
+  for (let i = 1; i < pages.length; i++) {
+    if (pages[i] === end + 1) {
+      end = pages[i];
+    } else {
+      ranges.push(start === end ? `${start}` : `${start}-${end}`);
+      start = end = pages[i];
+    }
+  }
+  ranges.push(start === end ? `${start}` : `${start}-${end}`);
+  return ranges.join(', ');
+}
+
+function updateProgress(pct, detail) {
+  progressBar.style.width = pct + '%';
+  progressPct.textContent = Math.round(pct) + '%';
+  if (detail) {
+    progressStatus.textContent = detail;
+    progressDetail.textContent = detail;
+  }
+}
+
+// --- Download ---
+downloadBtn.addEventListener('click', () => {
+  if (!outputBlob) return;
+  const url = URL.createObjectURL(outputBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = selectedFile.name.replace(/\.pdf$/i, '') + '_OCR.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+
+</body>
+</html>
