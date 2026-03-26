@@ -27,6 +27,8 @@
     --success: #00b894;
     --warning: #fdcb6e;
     --danger: #e17055;
+    --zeabur: #7b5ea7;
+    --zeabur-soft: rgba(123, 94, 167, 0.12);
     --radius: 12px;
   }
 
@@ -205,14 +207,8 @@
     transition: all 0.2s;
     white-space: nowrap;
   }
-  .range-tab.active {
-    background: var(--accent);
-    color: white;
-  }
-  .range-tab:not(.active):hover {
-    color: var(--text);
-    background: var(--surface-3);
-  }
+  .range-tab.active { background: var(--accent); color: white; }
+  .range-tab:not(.active):hover { color: var(--text); background: var(--surface-3); }
 
   .range-input-group {
     display: none;
@@ -240,34 +236,15 @@
     min-width: 0;
     transition: border-color 0.2s;
   }
-  .range-input:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
+  .range-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .range-input::placeholder { color: var(--text-dim); opacity: 0.6; }
+  .range-input.error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(225, 112, 85, 0.15); }
 
-  .range-input.error {
-    border-color: var(--danger);
-    box-shadow: 0 0 0 3px rgba(225, 112, 85, 0.15);
-  }
+  .range-hint { font-size: 11px; color: var(--text-dim); padding: 0 24px; margin-bottom: 4px; }
 
-  .range-hint {
-    font-size: 11px;
-    color: var(--text-dim);
-    padding: 0 24px;
-    margin-bottom: 4px;
-  }
-
-  .range-error {
-    font-size: 11px;
-    color: var(--danger);
-    padding: 0 24px 4px;
-    display: none;
-  }
+  .range-error { font-size: 11px; color: var(--danger); padding: 0 24px 4px; display: none; }
   .range-error.visible { display: block; }
 
-  /* Quick select buttons */
   .quick-select {
     display: flex;
     gap: 6px;
@@ -288,17 +265,9 @@
     cursor: pointer;
     transition: all 0.2s;
   }
-  .quick-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-soft);
-  }
+  .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 
-  /* Page grid */
-  .page-grid-wrapper {
-    padding: 12px 24px 20px;
-    display: none;
-  }
+  .page-grid-wrapper { padding: 12px 24px 20px; display: none; }
   .page-grid-wrapper.visible { display: block; }
 
   .page-grid {
@@ -327,40 +296,21 @@
     justify-content: center;
   }
   .page-cell:hover { border-color: var(--border-hover); transform: translateY(-1px); }
-
-  .page-cell.selected {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
-  }
-
-  .page-cell img {
-    width: 100%; height: 100%; object-fit: cover;
-    position: absolute; inset: 0;
-  }
+  .page-cell.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .page-cell img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
 
   .page-cell .page-num {
-    position: relative;
-    z-index: 1;
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text-dim);
+    position: relative; z-index: 1;
+    font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text-dim);
   }
   .page-cell.selected .page-num { color: white; }
 
   .page-cell .cell-check {
-    position: absolute;
-    top: 3px; right: 3px;
-    width: 18px; height: 18px;
-    border-radius: 50%;
+    position: absolute; top: 3px; right: 3px;
+    width: 18px; height: 18px; border-radius: 50%;
     background: var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2;
-    opacity: 0;
-    transform: scale(0.5);
-    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2; opacity: 0; transform: scale(0.5); transition: all 0.2s;
   }
   .page-cell.selected .cell-check { opacity: 1; transform: scale(1); }
 
@@ -392,7 +342,7 @@
   .setting-label { font-size: 14px; font-weight: 500; }
   .setting-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 
-  select, .text-input {
+  select {
     background: var(--surface-2); border: 1px solid var(--border);
     color: var(--text); padding: 8px 32px 8px 12px; border-radius: 8px;
     font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer;
@@ -403,36 +353,225 @@
   }
   select:hover { border-color: var(--accent); }
 
-  /* Toggle switch */
-  .toggle-wrap {
-    display: flex; align-items: center; gap: 10px;
-  }
+  .toggle-wrap { display: flex; align-items: center; gap: 10px; }
   .toggle {
     width: 44px; height: 24px; border-radius: 12px;
     background: var(--surface-2); border: 1px solid var(--border);
-    position: relative; cursor: pointer; transition: all 0.3s;
-    flex-shrink: 0;
+    position: relative; cursor: pointer; transition: all 0.3s; flex-shrink: 0;
   }
   .toggle::after {
     content: ''; position: absolute;
     top: 3px; left: 3px; width: 16px; height: 16px;
-    border-radius: 50%; background: var(--text-dim);
-    transition: all 0.3s;
+    border-radius: 50%; background: var(--text-dim); transition: all 0.3s;
   }
   .toggle.active { background: var(--accent); border-color: var(--accent); }
   .toggle.active::after { left: 23px; background: white; }
+  .toggle-label { font-size: 12px; color: var(--text-dim); font-family: 'Space Mono', monospace; }
 
-  .toggle-label {
-    font-size: 12px; color: var(--text-dim);
+  /* Processing Mode Tabs */
+  .mode-tabs {
+    display: flex;
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .mode-tab {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mode-tab.active-local { background: var(--accent); color: white; }
+  .mode-tab.active-zeabur { background: var(--zeabur); color: white; }
+  .mode-tab:not(.active-local):not(.active-zeabur):hover { color: var(--text); background: var(--surface-3); }
+
+  /* Zeabur Config Panel */
+  .zeabur-config {
+    display: none;
+    margin-top: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--zeabur);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .zeabur-config::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--zeabur), transparent);
+  }
+  .zeabur-config.visible { display: block; }
+
+  .zeabur-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .zeabur-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--zeabur);
+    background: var(--zeabur-soft);
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  .zeabur-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--zeabur);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+
+  .zeabur-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .zeabur-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.5px;
+  }
+
+  .field-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .text-input {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+  .text-input:focus { outline: none; border-color: var(--zeabur); box-shadow: 0 0 0 3px var(--zeabur-soft); }
+  .text-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+  .test-btn {
+    padding: 9px 16px;
+    border: 1px solid var(--zeabur);
+    border-radius: 8px;
+    background: var(--zeabur-soft);
+    color: var(--zeabur);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .test-btn:hover { background: var(--zeabur); color: white; }
+  .test-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .connection-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    margin-top: 6px;
+    height: 16px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .status-dot.ok { background: var(--success); }
+  .status-dot.err { background: var(--danger); }
+  .status-dot.checking { background: var(--warning); animation: pulse-dot 1s ease-in-out infinite; }
+
+  .status-text { color: var(--text-dim); }
+
+  .zeabur-note {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(123, 94, 167, 0.08);
+    border: 1px solid rgba(123, 94, 167, 0.2);
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+  .zeabur-note a { color: var(--zeabur); text-decoration: none; }
+  .zeabur-note a:hover { text-decoration: underline; }
+  .zeabur-note code {
+    background: var(--surface-3);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--text);
+  }
+
+  /* Zeabur upload progress extra */
+  .upload-bar-track {
+    width: 100%; height: 4px; background: var(--surface-2);
+    border-radius: 2px; overflow: hidden; margin-top: 8px;
+  }
+  .upload-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--zeabur), #a58ed4);
+    border-radius: 2px; width: 0%; transition: width 0.3s ease;
   }
 
   /* Buttons row */
-  .btn-row {
-    display: flex;
-    gap: 12px;
-    margin-top: 24px;
-  }
+  .btn-row { display: flex; gap: 12px; margin-top: 24px; }
 
   .start-btn {
     flex: 1; padding: 16px;
@@ -441,6 +580,9 @@
     color: white; font-family: 'DM Sans', sans-serif;
     font-size: 15px; font-weight: 600; cursor: pointer;
     transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .start-btn.zeabur-mode {
+    background: linear-gradient(135deg, var(--zeabur), #5a3a8a);
   }
   .start-btn::before {
     content: ''; position: absolute; inset: 0;
@@ -452,6 +594,7 @@
     transform: translateY(-1px);
     box-shadow: 0 6px 24px rgba(108, 92, 231, 0.3);
   }
+  .start-btn.zeabur-mode:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(123, 94, 167, 0.3); }
   .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .cancel-btn {
@@ -480,6 +623,27 @@
     border-radius: var(--radius); padding: 24px;
   }
 
+  .progress-mode-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .progress-mode-pill {
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .progress-mode-pill.local { background: var(--accent-soft); color: var(--accent-glow); }
+  .progress-mode-pill.server { background: var(--zeabur-soft); color: #c4a0f0; }
+
   .progress-header {
     display: flex; justify-content: space-between;
     align-items: center; margin-bottom: 16px;
@@ -496,15 +660,10 @@
     background: linear-gradient(90deg, var(--accent), var(--accent-glow));
     border-radius: 3px; width: 0%; transition: width 0.4s ease;
   }
+  .progress-bar-fill.zeabur { background: linear-gradient(90deg, var(--zeabur), #c4a0f0); }
 
   .progress-detail { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
-
-  .progress-eta {
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 6px;
-    font-family: 'Space Mono', monospace;
-  }
+  .progress-eta { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-family: 'Space Mono', monospace; }
 
   .page-previews {
     display: flex; gap: 8px; margin-top: 16px;
@@ -547,6 +706,7 @@
   .log-entry.warn { color: var(--warning); }
   .log-entry.error { color: var(--danger); }
   .log-entry.success { color: var(--success); }
+  .log-entry.zeabur { color: #c4a0f0; }
 
   /* Result */
   .result-section { display: none; margin-top: 24px; }
@@ -592,6 +752,10 @@
     .page-range-controls { flex-direction: column; }
     .range-input-group { width: 100%; }
     .btn-row { flex-direction: column; }
+    .mode-tabs { width: 100%; }
+    .mode-tab { flex: 1; justify-content: center; }
+    .field-row { flex-direction: column; }
+    .test-btn { width: 100%; }
   }
 </style>
 </head>
@@ -659,7 +823,6 @@
 
     <div class="range-hint" id="rangeHint"></div>
     <div class="range-error" id="rangeError"></div>
-
     <div class="quick-select" id="quickSelect"></div>
 
     <div class="page-grid-wrapper" id="pageGridWrapper">
@@ -670,6 +833,25 @@
   <!-- Settings -->
   <div class="settings">
     <div class="settings-title">OCR Settings</div>
+
+    <!-- Processing Mode -->
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Processing Mode</div>
+        <div class="setting-desc">Run OCR in the browser or offload to your Zeabur server</div>
+      </div>
+      <div class="mode-tabs">
+        <button class="mode-tab active-local" id="modeLocal" onclick="switchProcessingMode('local')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          In-Browser
+        </button>
+        <button class="mode-tab" id="modeZeabur" onclick="switchProcessingMode('zeabur')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Zeabur Server
+        </button>
+      </div>
+    </div>
+
     <div class="setting-row">
       <div>
         <div class="setting-label">Language Detection</div>
@@ -706,6 +888,45 @@
     </div>
   </div>
 
+  <!-- Zeabur Config Panel (appears below settings when server mode active) -->
+  <div class="zeabur-config" id="zeaburConfig">
+    <div class="zeabur-header">
+      <div class="zeabur-badge">ZEABUR SERVER</div>
+    </div>
+    <div class="zeabur-desc">
+      Upload your PDF to a Zeabur-hosted OCR backend. OCR runs server-side — no browser memory limits, supports large files, and keeps your machine free.
+    </div>
+
+    <div class="zeabur-fields">
+      <div class="field-group">
+        <div class="field-label">SERVICE URL</div>
+        <div class="field-row">
+          <input type="url" class="text-input" id="zeaburUrl"
+            placeholder="https://your-app.zeabur.app"
+            value="">
+          <button class="test-btn" id="testConnectionBtn" onclick="testZeaburConnection()">Test</button>
+        </div>
+        <div class="connection-status" id="connectionStatus">
+          <div class="status-dot" id="statusDot"></div>
+          <span class="status-text" id="statusText">Enter your Zeabur service URL above</span>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">API KEY <span style="color:var(--text-dim);font-weight:400;">(optional)</span></div>
+        <input type="password" class="text-input" id="zeaburApiKey"
+          placeholder="sk-... or leave blank if your server has no auth">
+      </div>
+    </div>
+
+    <div class="zeabur-note">
+      📦 Need a backend? Deploy <code>server.js</code> (included in this package) to Zeabur with one click.<br>
+      The server expects <code>POST /api/ocr</code> with multipart form data and returns a job ID.<br>
+      Status is polled via <code>GET /api/ocr/:jobId/status</code> — result at <code>GET /api/ocr/:jobId/result</code>.<br>
+      <a href="https://zeabur.com" target="_blank" rel="noopener">zeabur.com ↗</a>
+    </div>
+  </div>
+
   <!-- Buttons -->
   <div class="btn-row">
     <button class="start-btn" id="startBtn" disabled>Select a PDF to begin</button>
@@ -715,6 +936,10 @@
   <!-- Progress -->
   <div class="progress-section" id="progressSection">
     <div class="progress-card">
+      <div class="progress-mode-indicator" id="progressModeIndicator">
+        <span class="progress-mode-pill local" id="progressModePill">IN-BROWSER</span>
+        <span id="progressModeLabel">Tesseract.js · client-side</span>
+      </div>
       <div class="progress-header">
         <div class="progress-status" id="progressStatus">Initializing...</div>
         <div class="progress-pct" id="progressPct">0%</div>
@@ -724,6 +949,17 @@
       </div>
       <div class="progress-detail" id="progressDetail"></div>
       <div class="progress-eta" id="progressEta"></div>
+
+      <!-- Upload progress (Zeabur only) -->
+      <div id="uploadProgressWrap" style="display:none;margin-top:10px;">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;font-family:'Space Mono',monospace;">
+          Upload: <span id="uploadPct">0%</span>
+        </div>
+        <div class="upload-bar-track">
+          <div class="upload-bar-fill" id="uploadBar"></div>
+        </div>
+      </div>
+
       <div class="page-previews" id="pagePreviews"></div>
     </div>
     <div class="log-area" id="logArea"></div>
@@ -747,7 +983,6 @@
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
 const { PDFDocument } = PDFLib;
 
 // --- DOM ---
@@ -786,6 +1021,12 @@ const logArea = document.getElementById('logArea');
 const resultSection = document.getElementById('resultSection');
 const resultSummary = document.getElementById('resultSummary');
 const downloadBtn = document.getElementById('downloadBtn');
+const zeaburConfig = document.getElementById('zeaburConfig');
+const zeaburUrl = document.getElementById('zeaburUrl');
+const zeaburApiKey = document.getElementById('zeaburApiKey');
+const uploadProgressWrap = document.getElementById('uploadProgressWrap');
+const uploadBar = document.getElementById('uploadBar');
+const uploadPct = document.getElementById('uploadPct');
 
 let selectedFile = null;
 let outputBlob = null;
@@ -796,8 +1037,63 @@ let pageThumbnails = {};
 let thumbnailAbort = false;
 let cancelRequested = false;
 let cachedPdfBuffer = null;
+let processingMode = 'local'; // 'local' | 'zeabur'
+let activeJobId = null;
+let pollInterval = null;
 
-// --- Toggles ---
+// --- Processing Mode Switch ---
+function switchProcessingMode(mode) {
+  processingMode = mode;
+  document.getElementById('modeLocal').className = 'mode-tab' + (mode === 'local' ? ' active-local' : '');
+  document.getElementById('modeZeabur').className = 'mode-tab' + (mode === 'zeabur' ? ' active-zeabur' : '');
+  zeaburConfig.classList.toggle('visible', mode === 'zeabur');
+  startBtn.classList.toggle('zeabur-mode', mode === 'zeabur');
+  if (selectedFile) updateStartBtn();
+}
+
+// --- Zeabur connection test ---
+async function testZeaburConnection() {
+  const url = zeaburUrl.value.trim();
+  if (!url) return;
+
+  const btn = document.getElementById('testConnectionBtn');
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+
+  btn.disabled = true;
+  dot.className = 'status-dot checking';
+  text.textContent = 'Connecting...';
+
+  const apiKey = zeaburApiKey.value.trim();
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['X-API-Key'] = apiKey;
+
+  try {
+    const base = url.replace(/\/$/, '');
+    const res = await fetch(`${base}/api/health`, { method: 'GET', headers, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      dot.className = 'status-dot ok';
+      text.textContent = `Connected — ${data.version ? 'v' + data.version : 'server ready'}`;
+    } else {
+      dot.className = 'status-dot err';
+      text.textContent = `Server responded with HTTP ${res.status}`;
+    }
+  } catch (err) {
+    dot.className = 'status-dot err';
+    text.textContent = err.name === 'TimeoutError' ? 'Connection timed out' : `Failed: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Listen for URL changes to reset status
+zeaburUrl.addEventListener('input', () => {
+  document.getElementById('statusDot').className = 'status-dot';
+  document.getElementById('statusText').textContent = 'Press Test to verify connection';
+});
+
+// --- Toggle ---
 function setupToggle(toggle, label) {
   toggle.addEventListener('click', () => {
     toggle.classList.toggle('active');
@@ -841,13 +1137,10 @@ async function handleFile(f) {
   resultSection.classList.remove('visible');
 
   try {
-    // Cache buffer for reuse during OCR
     cachedPdfBuffer = await f.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: cachedPdfBuffer.slice(0) }).promise;
     totalPages = pdf.numPages;
     fileMeta.textContent = `${formatSize(f.size)} • ${totalPages} page${totalPages > 1 ? 's' : ''}`;
-
-    // Setup page range — NO eager thumbnail generation
     setupPageRange();
     pageRangeSection.classList.add('visible');
     setMode('all');
@@ -874,7 +1167,6 @@ function setupPageRange() {
   rangeTo.placeholder = totalPages;
   customRange.value = '';
   rangeError.classList.remove('visible');
-
   quickSelect.innerHTML = '';
   if (totalPages > 5) {
     addQuickBtn('First 5', () => applyQuick(1, 5));
@@ -900,12 +1192,9 @@ function setupPageRange() {
       parseAndUpdate();
     });
   }
-
-  // Build page grid cells — thumbnails lazy-loaded only when Pick mode opens
   pageGrid.innerHTML = '';
   pageThumbnails = {};
   thumbsLoaded = false;
-
   for (let i = 1; i <= totalPages; i++) {
     const cell = document.createElement('div');
     cell.className = 'page-cell selected';
@@ -922,38 +1211,32 @@ function setupPageRange() {
   }
 }
 
-// Lazy thumbnail loader — only triggers when Pick mode is opened
 let thumbsLoaded = false;
 async function loadThumbnailsIfNeeded() {
   if (thumbsLoaded || !cachedPdfBuffer) return;
   thumbsLoaded = true;
   thumbnailAbort = false;
-
   const pdf = await pdfjsLib.getDocument({ data: cachedPdfBuffer.slice(0) }).promise;
   for (let i = 1; i <= totalPages; i++) {
     if (thumbnailAbort) break;
     try {
       const page = await pdf.getPage(i);
-      const vp = page.getViewport({ scale: 0.15 }); // very small for speed
+      const vp = page.getViewport({ scale: 0.15 });
       const canvas = document.createElement('canvas');
       canvas.width = vp.width;
       canvas.height = vp.height;
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
       const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
       pageThumbnails[i] = dataUrl;
-
       const cell = pageGrid.querySelector(`[data-page="${i}"]`);
       if (cell && !cell.querySelector('img')) {
         const img = document.createElement('img');
         img.src = dataUrl;
         cell.prepend(img);
       }
-      // Free canvas memory
       canvas.width = 0; canvas.height = 0;
-      // Yield to browser every 5 pages to stay responsive
       if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
-    } catch(e) { /* skip */ }
+    } catch(e) {}
   }
 }
 
@@ -973,9 +1256,7 @@ function applyQuick(from, to) {
 }
 
 function switchToMode(mode) {
-  document.querySelectorAll('.range-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.mode === mode);
-  });
+  document.querySelectorAll('.range-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
   setMode(mode);
 }
 
@@ -1010,9 +1291,8 @@ function setMode(mode) {
   } else if (mode === 'pick') {
     pageGridWrapper.classList.add('visible');
     rangeHint.textContent = 'Click pages to select or deselect them';
-    loadThumbnailsIfNeeded(); // lazy load thumbnails only now
+    loadThumbnailsIfNeeded();
   }
-
   updateBadge();
   updateStartBtn();
 }
@@ -1030,37 +1310,21 @@ function parseAndUpdate() {
   if (currentMode === 'range') {
     const from = parseInt(rangeFrom.value) || 1;
     const to = parseInt(rangeTo.value) || totalPages;
-
     if (from < 1 || from > totalPages || to < 1 || to > totalPages) {
-      showRangeError(`Page numbers must be between 1 and ${totalPages}`);
-      return;
+      showRangeError(`Page numbers must be between 1 and ${totalPages}`); return;
     }
-    if (from > to) {
-      showRangeError('Start page must be ≤ end page');
-      return;
-    }
-
+    if (from > to) { showRangeError('Start page must be ≤ end page'); return; }
     selectedPages = new Set();
     for (let i = from; i <= to; i++) selectedPages.add(i);
   } else if (currentMode === 'custom') {
     const val = customRange.value.trim();
     if (!val) {
       selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
-      updateBadge();
-      updateStartBtn();
-      syncGridToSelection();
-      return;
+      updateBadge(); updateStartBtn(); syncGridToSelection(); return;
     }
-
-    try {
-      selectedPages = parseCustomRange(val);
-    } catch (err) {
-      showRangeError(err.message);
-      customRange.classList.add('error');
-      return;
-    }
+    try { selectedPages = parseCustomRange(val); }
+    catch (err) { showRangeError(err.message); customRange.classList.add('error'); return; }
   }
-
   syncGridToSelection();
   updateBadge();
   updateStartBtn();
@@ -1069,7 +1333,6 @@ function parseAndUpdate() {
 function parseCustomRange(str) {
   const pages = new Set();
   const parts = str.split(',').map(s => s.trim()).filter(Boolean);
-
   for (const part of parts) {
     if (part.includes('-')) {
       const [a, b] = part.split('-').map(s => parseInt(s.trim()));
@@ -1093,9 +1356,7 @@ function showRangeError(msg) {
 }
 
 function togglePageCell(cell, pageNum) {
-  if (currentMode !== 'pick') {
-    switchToMode('pick');
-  }
+  if (currentMode !== 'pick') switchToMode('pick');
   if (selectedPages.has(pageNum)) {
     selectedPages.delete(pageNum);
     cell.classList.remove('selected');
@@ -1121,14 +1382,15 @@ function updateBadge() {
 
 function updateStartBtn() {
   const n = selectedPages.size;
+  const modeLabel = processingMode === 'zeabur' ? '☁ Upload to Zeabur' : 'Start OCR';
   if (n === 0) {
     startBtn.disabled = true;
     startBtn.textContent = 'Select at least one page';
   } else {
     startBtn.disabled = false;
     startBtn.textContent = n === totalPages
-      ? `Start OCR — All ${totalPages} pages`
-      : `Start OCR — ${n} of ${totalPages} pages`;
+      ? `${modeLabel} — All ${totalPages} pages`
+      : `${modeLabel} — ${n} of ${totalPages} pages`;
   }
 }
 
@@ -1174,8 +1436,7 @@ function enhanceImage(canvas) {
   const ctx = canvas.getContext('2d');
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
-  const contrast = 1.3;
-  const brightness = 10;
+  const contrast = 1.3, brightness = 10;
   for (let i = 0; i < data.length; i += 4) {
     data[i]   = Math.min(255, Math.max(0, contrast * (data[i]   - 128) + 128 + brightness));
     data[i+1] = Math.min(255, Math.max(0, contrast * (data[i+1] - 128) + 128 + brightness));
@@ -1189,13 +1450,250 @@ function enhanceImage(canvas) {
 cancelBtn.addEventListener('click', () => {
   cancelRequested = true;
   cancelBtn.classList.remove('visible');
-  log('Cancellation requested — stopping after current page...', 'warn');
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  if (activeJobId && processingMode === 'zeabur') {
+    const base = zeaburUrl.value.trim().replace(/\/$/, '');
+    const headers = {};
+    const key = zeaburApiKey.value.trim();
+    if (key) headers['X-API-Key'] = key;
+    fetch(`${base}/api/ocr/${activeJobId}/cancel`, { method: 'POST', headers }).catch(() => {});
+    log('Cancellation sent to Zeabur server...', 'warn');
+  }
+  log('Cancellation requested — stopping...', 'warn');
 });
 
-// --- Main OCR Pipeline ---
+// --- Start button ---
 startBtn.addEventListener('click', async () => {
   if (!selectedFile || selectedPages.size === 0) return;
+  if (processingMode === 'zeabur') {
+    await runZeaburOCR();
+  } else {
+    await runLocalOCR();
+  }
+});
 
+// ============================================================
+// ZEABUR SERVER OCR
+// ============================================================
+async function runZeaburOCR() {
+  const serviceUrl = zeaburUrl.value.trim().replace(/\/$/, '');
+  if (!serviceUrl) {
+    alert('Please enter your Zeabur service URL in the settings panel.');
+    return;
+  }
+
+  cancelRequested = false;
+  activeJobId = null;
+  startBtn.disabled = true;
+  startBtn.textContent = 'Uploading...';
+  cancelBtn.classList.add('visible');
+  progressSection.classList.add('visible');
+  resultSection.classList.remove('visible');
+  logArea.innerHTML = '';
+  pagePreviews.innerHTML = '';
+  progressEta.textContent = '';
+  uploadProgressWrap.style.display = 'block';
+  uploadBar.style.width = '0%';
+  uploadPct.textContent = '0%';
+  progressBar.className = 'progress-bar-fill zeabur';
+
+  // Update mode indicator
+  document.getElementById('progressModePill').className = 'progress-mode-pill server';
+  document.getElementById('progressModePill').textContent = 'ZEABUR SERVER';
+  document.getElementById('progressModeLabel').textContent = `${serviceUrl}`;
+
+  const ocrPages = [...selectedPages].sort((a, b) => a - b);
+  const apiKey = zeaburApiKey.value.trim();
+  const headers = {};
+  if (apiKey) headers['X-API-Key'] = apiKey;
+
+  log(`☁ Zeabur server: ${serviceUrl}`, 'zeabur');
+  log(`Preparing upload — ${ocrPages.length} page(s), ${formatSize(selectedFile.size)}`, '');
+
+  // Build thumbnails for progress display
+  for (const p of ocrPages) {
+    const thumb = document.createElement('div');
+    thumb.className = 'page-thumb';
+    thumb.id = `thumb-${p}`;
+    thumb.innerHTML = `<div class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
+    if (pageThumbnails[p]) {
+      const img = document.createElement('img');
+      img.src = pageThumbnails[p];
+      thumb.prepend(img);
+    }
+    pagePreviews.appendChild(thumb);
+  }
+
+  try {
+    // 1. Upload PDF + settings to Zeabur
+    updateProgress(2, 'Uploading PDF to server...');
+
+    const formData = new FormData();
+    formData.append('file', selectedFile, selectedFile.name);
+    formData.append('pages', JSON.stringify(ocrPages));
+    formData.append('lang', langMode.value);
+    formData.append('dpi', dpiMode.value);
+    formData.append('enhance', enhanceToggle.classList.contains('active') ? 'true' : 'false');
+
+    // Upload with XMLHttpRequest for progress tracking
+    const uploadResult = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${serviceUrl}/api/ocr`);
+      if (apiKey) xhr.setRequestHeader('X-API-Key', apiKey);
+      xhr.timeout = 300000; // 5 min timeout for large files
+
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) {
+          const pct = Math.round(e.loaded / e.total * 100);
+          uploadBar.style.width = pct + '%';
+          uploadPct.textContent = pct + '%';
+          updateProgress(2 + pct * 0.18, `Uploading… ${pct}%`);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText)); }
+          catch (e) { reject(new Error('Invalid server response')); }
+        } else {
+          let msg = `Upload failed: HTTP ${xhr.status}`;
+          try { const d = JSON.parse(xhr.responseText); if (d.error) msg = d.error; } catch(e) {}
+          reject(new Error(msg));
+        }
+      });
+
+      xhr.addEventListener('error', () => reject(new Error('Network error — check CORS and service URL')));
+      xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+
+      xhr.send(formData);
+    });
+
+    uploadProgressWrap.style.display = 'none';
+    uploadBar.style.width = '100%';
+
+    activeJobId = uploadResult.jobId;
+    if (!activeJobId) throw new Error('Server did not return a job ID');
+
+    log(`✓ Upload complete — Job ID: ${activeJobId}`, 'success');
+    log('Server is processing OCR...', 'zeabur');
+    updateProgress(22, 'Server processing...');
+
+    // 2. Poll for status
+    await pollJobStatus(serviceUrl, activeJobId, headers, ocrPages);
+
+  } catch (err) {
+    if (!cancelRequested) {
+      log(`Error: ${err.message}`, 'error');
+      updateProgress(0, 'Error occurred');
+    } else {
+      updateProgress(0, 'Cancelled');
+    }
+  } finally {
+    uploadProgressWrap.style.display = 'none';
+    startBtn.textContent = 'Start OCR Processing';
+    startBtn.disabled = false;
+    cancelBtn.classList.remove('visible');
+    cancelRequested = false;
+    activeJobId = null;
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  }
+}
+
+async function pollJobStatus(serviceUrl, jobId, headers, ocrPages) {
+  return new Promise((resolve, reject) => {
+    let lastPage = 0;
+
+    pollInterval = setInterval(async () => {
+      if (cancelRequested) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+        resolve();
+        return;
+      }
+
+      try {
+        const res = await fetch(`${serviceUrl}/api/ocr/${jobId}/status`, { headers });
+        if (!res.ok) throw new Error(`Status check failed: HTTP ${res.status}`);
+        const status = await res.json();
+
+        // Update progress
+        const serverPct = status.progress || 0;
+        const displayPct = 22 + serverPct * 0.73;
+        updateProgress(displayPct, status.message || 'Processing...');
+
+        // Show per-page completions
+        if (status.completedPages && status.completedPages > lastPage) {
+          for (let i = lastPage; i < Math.min(status.completedPages, ocrPages.length); i++) {
+            const pageNum = ocrPages[i];
+            const thumbEl = document.getElementById(`thumb-${pageNum}`);
+            if (thumbEl) {
+              thumbEl.classList.remove('processing');
+              thumbEl.classList.add('done');
+            }
+            log(`Page ${pageNum}: done on server`, 'success');
+          }
+          // Mark current page as processing
+          if (status.completedPages < ocrPages.length) {
+            const current = ocrPages[status.completedPages];
+            const thumbEl = document.getElementById(`thumb-${current}`);
+            if (thumbEl) thumbEl.classList.add('processing');
+          }
+          lastPage = status.completedPages;
+        }
+
+        if (status.eta) progressEta.textContent = `~${status.eta}s remaining`;
+
+        if (status.status === 'done') {
+          clearInterval(pollInterval);
+          pollInterval = null;
+          log('Server OCR complete — downloading result...', 'zeabur');
+          updateProgress(97, 'Downloading result...');
+          await downloadJobResult(serviceUrl, jobId, headers, status);
+          resolve();
+        } else if (status.status === 'error') {
+          clearInterval(pollInterval);
+          pollInterval = null;
+          reject(new Error(status.error || 'Server-side OCR failed'));
+        }
+      } catch (err) {
+        if (!cancelRequested) {
+          log(`Poll error: ${err.message}`, 'warn');
+        }
+      }
+    }, 2000);
+  });
+}
+
+async function downloadJobResult(serviceUrl, jobId, headers, statusData) {
+  const res = await fetch(`${serviceUrl}/api/ocr/${jobId}/result`, { headers });
+  if (!res.ok) throw new Error(`Result download failed: HTTP ${res.status}`);
+  const blob = await res.blob();
+  outputBlob = blob;
+
+  updateProgress(100, 'Done!');
+  progressEta.textContent = '';
+  log(`Done! ${formatSize(blob.size)} — text layer embedded`, 'success');
+
+  const processedCount = statusData.completedPages || [...selectedPages].length;
+  const processedPages = [...selectedPages].sort((a, b) => a - b).slice(0, processedCount);
+  const pageDesc = processedCount === totalPages
+    ? `All ${processedCount} pages OCR'd on Zeabur`
+    : `${processedCount} of ${totalPages} pages OCR'd`;
+
+  const totalTime = statusData.totalTime ? `${statusData.totalTime}s` : '—';
+  const avgConf = statusData.avgConfidence ? `${statusData.avgConfidence.toFixed(1)}%` : '—';
+
+  resultSummary.innerHTML = `${pageDesc} • ${totalTime} • Avg. confidence ${avgConf}<br>
+    <span class="lang-badge">Zeabur Server</span>
+    <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
+  resultSection.classList.add('visible');
+}
+
+// ============================================================
+// LOCAL (IN-BROWSER) OCR
+// ============================================================
+async function runLocalOCR() {
   cancelRequested = false;
   startBtn.disabled = true;
   startBtn.textContent = 'Processing...';
@@ -1205,35 +1703,36 @@ startBtn.addEventListener('click', async () => {
   logArea.innerHTML = '';
   pagePreviews.innerHTML = '';
   progressEta.textContent = '';
+  uploadProgressWrap.style.display = 'none';
+  progressBar.className = 'progress-bar-fill';
+
+  document.getElementById('progressModePill').className = 'progress-mode-pill local';
+  document.getElementById('progressModePill').textContent = 'IN-BROWSER';
+  document.getElementById('progressModeLabel').textContent = 'Tesseract.js · client-side';
 
   const targetDPI = parseInt(dpiMode.value);
   const langSetting = langMode.value;
   const doEnhance = enhanceToggle.classList.contains('active');
-
   const ocrPages = [...selectedPages].sort((a, b) => a - b);
 
   log(`OCR target: ${ocrPages.length} page(s) — [${summarizePages(ocrPages)}]`);
   log(`Settings: ${targetDPI} DPI, enhance: ${doEnhance ? 'ON' : 'OFF'}`);
   if (ocrPages.length < totalPages) {
-    log(`Skipping ${totalPages - ocrPages.length} unselected page(s) — output will only contain selected pages`);
+    log(`Skipping ${totalPages - ocrPages.length} unselected page(s)`);
   }
 
   let worker = null;
 
   try {
-    // 1. Load PDF (reuse cached buffer)
     log('Loading PDF file...');
     const pdf = await pdfjsLib.getDocument({ data: cachedPdfBuffer.slice(0) }).promise;
     log(`PDF loaded: ${pdf.numPages} page(s)`, 'success');
 
-    // Progress thumbnails
     for (const p of ocrPages) {
       const thumb = document.createElement('div');
       thumb.className = 'page-thumb';
       thumb.id = `thumb-${p}`;
-      thumb.innerHTML = `
-        <div class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
-      `;
+      thumb.innerHTML = `<div class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
       if (pageThumbnails[p]) {
         const img = document.createElement('img');
         img.src = pageThumbnails[p];
@@ -1242,67 +1741,47 @@ startBtn.addEventListener('click', async () => {
       pagePreviews.appendChild(thumb);
     }
 
-    // 2. Smart language detection — quick pre-scan first page
     updateProgress(3, 'Detecting language...');
-
     let ocrLangs = langSetting;
     if (langSetting === 'auto') {
-      log('Auto-detect: quick-scanning first page to determine language...');
+      log('Auto-detect: quick-scanning first page...');
       const detectPage = await pdf.getPage(ocrPages[0]);
-      const detectVp = detectPage.getViewport({ scale: 1.0 }); // ~72 DPI for speed
+      const detectVp = detectPage.getViewport({ scale: 1.0 });
       const detectCanvas = document.createElement('canvas');
       detectCanvas.width = detectVp.width;
       detectCanvas.height = detectVp.height;
       await detectPage.render({ canvasContext: detectCanvas.getContext('2d'), viewport: detectVp }).promise;
       const detectImg = detectCanvas.toDataURL('image/jpeg', 0.5);
-
-      // Quick OCR with all languages to detect which one
       const detectWorker = await Tesseract.createWorker('eng+chi_tra+chi_sim', 1, { logger: m => {} });
       const detectResult = await detectWorker.recognize(detectImg);
       const detectedLang = detectLanguage(detectResult.data.text || '');
       await detectWorker.terminate();
-      detectCanvas.width = 0; detectCanvas.height = 0; // free memory
-
+      detectCanvas.width = 0; detectCanvas.height = 0;
       ocrLangs = detectedLang;
-      const langLabel = {
-        'eng': 'English', 'chi_tra': 'Traditional Chinese',
-        'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese'
-      }[ocrLangs] || ocrLangs;
-      log(`Detected language: ${langLabel} — loading optimized model`, 'success');
+      const langLabel = { 'eng': 'English', 'chi_tra': 'Traditional Chinese', 'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese' }[ocrLangs] || ocrLangs;
+      log(`Detected language: ${langLabel}`, 'success');
     }
 
-    // 3. Initialize worker with only the needed language
     updateProgress(8, 'Loading OCR engine...');
     log(`Loading language model: ${ocrLangs}`);
-
-    worker = await Tesseract.createWorker(ocrLangs, 1, {
-      logger: m => {}
-    });
-
+    worker = await Tesseract.createWorker(ocrLangs, 1, { logger: m => {} });
     log('OCR engine ready', 'success');
     updateProgress(15, 'Starting page processing...');
 
-    // 4. Process only selected pages
     const pagePdfBytes = [];
     const pageTexts = [];
     const detectedLangs = new Set([ocrLangs]);
     const startTime = Date.now();
 
     for (let idx = 0; idx < ocrPages.length; idx++) {
-      // Check cancel
-      if (cancelRequested) {
-        log('Processing cancelled by user', 'warn');
-        break;
-      }
+      if (cancelRequested) { log('Processing cancelled by user', 'warn'); break; }
 
       const pageNum = ocrPages[idx];
       const thumbEl = document.getElementById(`thumb-${pageNum}`);
       thumbEl.classList.add('processing');
 
-      const pctBase = 15 + idx / ocrPages.length * 80;
-      updateProgress(pctBase, `OCR page ${pageNum} (${idx + 1}/${ocrPages.length})...`);
+      updateProgress(15 + idx / ocrPages.length * 80, `OCR page ${pageNum} (${idx + 1}/${ocrPages.length})...`);
 
-      // ETA calculation
       if (idx > 0) {
         const elapsed = (Date.now() - startTime) / 1000;
         const perPage = elapsed / idx;
@@ -1311,19 +1790,14 @@ startBtn.addEventListener('click', async () => {
       }
 
       log(`Rendering page ${pageNum} at ${targetDPI} DPI...`);
-
-      // Render page to canvas
       const page = await pdf.getPage(pageNum);
       const origVp = page.getViewport({ scale: 1 });
       const viewport = page.getViewport({ scale: targetDPI / 72 });
-
       const canvas = document.createElement('canvas');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
-      // Thumbnail (if not cached)
       if (!pageThumbnails[pageNum] && thumbEl) {
         const tc = document.createElement('canvas');
         tc.width = 48; tc.height = 64;
@@ -1331,32 +1805,20 @@ startBtn.addEventListener('click', async () => {
         const img = document.createElement('img');
         img.src = tc.toDataURL('image/jpeg', 0.4);
         thumbEl.prepend(img);
-        tc.width = 0; tc.height = 0; // free
+        tc.width = 0; tc.height = 0;
       }
 
-      // Enhancement
-      if (doEnhance) {
-        enhanceImage(canvas);
-        log(`  ↳ Enhancement applied`);
-      }
+      if (doEnhance) { enhanceImage(canvas); log('  ↳ Enhancement applied'); }
 
-      // Use JPEG for OCR input — much smaller than PNG
       const imageData = canvas.toDataURL('image/jpeg', 0.85);
-
-      // Free canvas memory immediately
       canvas.width = 0; canvas.height = 0;
 
-      // OCR
       log(`Running OCR on page ${pageNum}...`);
-      let text = '', confidence = 0;
-      let singlePagePdf = null;
-
+      let text = '', confidence = 0, singlePagePdf = null;
       try {
         const result = await worker.recognize(imageData);
         text = result.data.text || '';
         confidence = result.data.confidence || 0;
-
-        // getPDF generates a searchable PDF with image + invisible text overlay
         const pdfOutput = await worker.getPDF('ScanLens OCR');
         singlePagePdf = new Uint8Array(pdfOutput.data);
       } catch (err) {
@@ -1371,37 +1833,21 @@ startBtn.addEventListener('click', async () => {
 
       log(`Page ${pageNum}: ${text.length} chars, confidence ${confidence.toFixed(1)}%, lang: ${langLabel}`, confidence > 50 ? 'success' : 'warn');
 
-      pagePdfBytes.push({
-        pageNum,
-        pdfBytes: singlePagePdf,
-        imageData,
-        text,
-        confidence,
-        lang: ocrLangs,
-        originalWidth: origVp.width,
-        originalHeight: origVp.height
-      });
-
+      pagePdfBytes.push({ pageNum, pdfBytes: singlePagePdf, imageData, text, confidence, lang: ocrLangs, originalWidth: origVp.width, originalHeight: origVp.height });
       pageTexts.push({ text, confidence });
 
       thumbEl.classList.remove('processing');
       thumbEl.classList.add('done');
       updateProgress(15 + (idx + 1) / ocrPages.length * 80, `Completed page ${pageNum}`);
-
-      // Yield to browser between pages
       await new Promise(r => setTimeout(r, 10));
     }
 
-    // 5. Merge all single-page PDFs into one
-    if (pagePdfBytes.length === 0) {
-      throw new Error('No pages were processed');
-    }
+    if (pagePdfBytes.length === 0) throw new Error('No pages were processed');
 
     log(`Merging ${pagePdfBytes.length} page(s) into final PDF...`);
     updateProgress(93, 'Merging pages...');
 
     const mergedPdf = await PDFDocument.create();
-
     for (const entry of pagePdfBytes) {
       if (entry.pdfBytes) {
         try {
@@ -1413,9 +1859,6 @@ startBtn.addEventListener('click', async () => {
           log(`  ↳ Merge error for page ${entry.pageNum}, using image fallback`, 'warn');
         }
       }
-
-      // Fallback: embed the scanned image as a full-page image
-      log(`  ↳ Page ${entry.pageNum}: embedding as image (no text layer)`);
       const base64 = entry.imageData.split(',')[1];
       const imgBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       let embeddedImg;
@@ -1425,34 +1868,23 @@ startBtn.addEventListener('click', async () => {
         embeddedImg = await mergedPdf.embedPng(imgBytes);
       }
       const imgPage = mergedPdf.addPage([entry.originalWidth, entry.originalHeight]);
-      imgPage.drawImage(embeddedImg, {
-        x: 0, y: 0,
-        width: entry.originalWidth,
-        height: entry.originalHeight,
-      });
+      imgPage.drawImage(embeddedImg, { x: 0, y: 0, width: entry.originalWidth, height: entry.originalHeight });
     }
 
-    log('Building final PDF...');
     updateProgress(97, 'Generating output PDF...');
-
     const mergedBytes = await mergedPdf.save();
     outputBlob = new Blob([mergedBytes], { type: 'application/pdf' });
 
     await worker.terminate();
     worker = null;
 
-    // 6. Result
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
     updateProgress(100, 'Done!');
     progressEta.textContent = '';
     log(`Done! ${pagePdfBytes.length} page(s), ${formatSize(mergedBytes.length)}, ${totalTime}s total`, 'success');
 
     const langBadges = [...detectedLangs].map(l => {
-      const label = {
-        'eng': 'English', 'chi_tra': 'Traditional Chinese',
-        'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese',
-        'chi_tra+chi_sim+eng': 'Multilingual'
-      }[l] || l;
+      const label = { 'eng': 'English', 'chi_tra': 'Traditional Chinese', 'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese', 'chi_tra+chi_sim+eng': 'Multilingual' }[l] || l;
       return `<span class="lang-badge">${label}</span>`;
     }).join(' ');
 
@@ -1469,7 +1901,6 @@ startBtn.addEventListener('click', async () => {
     const cancelNote = cancelRequested ? '<br><span style="color:var(--warning);">Processing was cancelled early</span>' : '';
 
     resultSummary.innerHTML = `${pageDesc} • ${totalTime}s • Avg. confidence ${avgConf}% • ${langBadges}${cancelNote}<br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
-
     resultSection.classList.add('visible');
 
   } catch (err) {
@@ -1485,7 +1916,7 @@ startBtn.addEventListener('click', async () => {
     cancelBtn.classList.remove('visible');
     cancelRequested = false;
   }
-});
+}
 
 function summarizePages(pages) {
   if (pages.length === 0) return '';
@@ -1493,12 +1924,8 @@ function summarizePages(pages) {
   const ranges = [];
   let start = pages[0], end = pages[0];
   for (let i = 1; i < pages.length; i++) {
-    if (pages[i] === end + 1) {
-      end = pages[i];
-    } else {
-      ranges.push(start === end ? `${start}` : `${start}-${end}`);
-      start = end = pages[i];
-    }
+    if (pages[i] === end + 1) { end = pages[i]; }
+    else { ranges.push(start === end ? `${start}` : `${start}-${end}`); start = end = pages[i]; }
   }
   ranges.push(start === end ? `${start}` : `${start}-${end}`);
   return ranges.join(', ');
@@ -1507,10 +1934,7 @@ function summarizePages(pages) {
 function updateProgress(pct, detail) {
   progressBar.style.width = pct + '%';
   progressPct.textContent = Math.round(pct) + '%';
-  if (detail) {
-    progressStatus.textContent = detail;
-    progressDetail.textContent = detail;
-  }
+  if (detail) { progressStatus.textContent = detail; progressDetail.textContent = detail; }
 }
 
 // --- Download ---
