@@ -33,7 +33,7 @@ const PORT        = process.env.PORT        || 3000;
 const MAX_FILE_MB = parseInt(process.env.MAX_FILE_MB || '100');
 const API_KEY     = process.env.API_KEY     || '';   // blank = no auth
 
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'OPTIONS'] }));
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'DELETE', 'OPTIONS'] }));
 app.use(express.json());
 
 // ─────────────────────────────────────────────────────────
@@ -200,6 +200,45 @@ app.get('/api/ocr/:jobId/result', authCheck, (req, res) => {
   res.setHeader('Content-Type',        'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="scanlens_ocr_output.pdf"');
   fs.createReadStream(job.resultPath).pipe(res);
+});
+
+// ─────────────────────────────────────────────────────────
+// GET /api/jobs — list all jobs for the file manager
+// ─────────────────────────────────────────────────────────
+app.get('/api/jobs', authCheck, (_req, res) => {
+  const list = [];
+  for (const job of jobs.values()) {
+    let fileSizeBytes = 0;
+    if (job.resultPath) {
+      try { fileSizeBytes = fs.statSync(job.resultPath).size; } catch (_) {}
+    }
+    list.push({
+      jobId:          job.id,
+      status:         job.status,
+      totalPages:     job.totalPages,
+      completedPages: job.completedPages,
+      totalTime:      job.totalTime,
+      avgConfidence:  job.avgConfidence,
+      createdAt:      job.createdAt,
+      fileSizeBytes,
+      hasResult:      !!(job.resultPath && fs.existsSync(job.resultPath)),
+      error:          job.error || null
+    });
+  }
+  list.sort((a, b) => b.createdAt - a.createdAt);
+  res.json({ jobs: list });
+});
+
+// ─────────────────────────────────────────────────────────
+// DELETE /api/ocr/:jobId — remove job record + all its files
+// ─────────────────────────────────────────────────────────
+app.delete('/api/ocr/:jobId', authCheck, (req, res) => {
+  const job = jobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  job.cancelRequested = true;   // stop it if still running
+  cleanupJob(job);
+  jobs.delete(req.params.jobId);
+  res.json({ message: 'Job deleted' });
 });
 
 // ─────────────────────────────────────────────────────────

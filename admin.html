@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScanLens — File Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-2: #1a1a26;
+    --surface-3: #22222f;
+    --border: #2a2a3a;
+    --border-hover: #3a3a50;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --accent: #6c5ce7;
+    --accent-glow: #7c6cf7;
+    --accent-soft: rgba(108, 92, 231, 0.12);
+    --success: #00b894;
+    --success-soft: rgba(0, 184, 148, 0.1);
+    --warning: #fdcb6e;
+    --warning-soft: rgba(253, 203, 110, 0.1);
+    --danger: #e17055;
+    --danger-soft: rgba(225, 112, 85, 0.1);
+    --zeabur: #7b5ea7;
+    --zeabur-soft: rgba(123, 94, 167, 0.12);
+    --radius: 12px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(108, 92, 231, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(123, 94, 167, 0.04) 0%, transparent 50%);
+    z-index: -1;
+  }
+
+  .app {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* ── Header ──────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .page-subtitle {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── Server config bar ───────────────────────────── */
+  .config-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .config-bar label {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  .config-input {
+    flex: 1;
+    min-width: 180px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    transition: border-color 0.2s;
+  }
+  .config-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .config-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+  .config-sep {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  .connect-btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .connect-btn:hover { background: var(--accent-glow); box-shadow: 0 4px 16px rgba(108,92,231,0.3); }
+  .connect-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .conn-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .conn-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .conn-dot.ok { background: var(--success); }
+  .conn-dot.err { background: var(--danger); }
+  .conn-dot.checking { background: var(--warning); animation: pulse 1s ease-in-out infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+
+  /* ── Toolbar ─────────────────────────────────────── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .job-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .filter-tabs {
+    display: flex;
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .filter-tab {
+    padding: 5px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-tab.active { background: var(--surface-3); color: var(--text); }
+  .filter-tab:not(.active):hover { color: var(--text); }
+
+  .toolbar-right { display: flex; gap: 8px; }
+
+  .icon-btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .icon-btn:hover { border-color: var(--border-hover); color: var(--text); }
+  .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+
+  /* ── Empty / Loading states ──────────────────────── */
+  .state-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 60px 32px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+
+  .state-box .state-icon {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+
+  .state-box h3 { font-size: 16px; color: var(--text); margin-bottom: 6px; }
+  .state-box p  { font-size: 13px; line-height: 1.6; }
+
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Job list ────────────────────────────────────── */
+  .job-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .job-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: center;
+    transition: border-color 0.2s;
+  }
+  .job-card:hover { border-color: var(--border-hover); }
+  .job-card.done   { border-left: 3px solid var(--success); }
+  .job-card.error  { border-left: 3px solid var(--danger); }
+  .job-card.processing { border-left: 3px solid var(--warning); }
+  .job-card.cancelled  { border-left: 3px solid var(--text-dim); }
+
+  /* Status badge column */
+  .job-status-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+
+  .status-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .status-badge.done        { background: var(--success-soft); color: var(--success); }
+  .status-badge.processing  { background: var(--warning-soft); color: var(--warning); }
+  .status-badge.queued      { background: var(--accent-soft);  color: var(--accent-glow); }
+  .status-badge.error       { background: var(--danger-soft);  color: var(--danger); }
+  .status-badge.cancelled   { background: var(--surface-2);    color: var(--text-dim); }
+
+  /* Info column */
+  .job-info { min-width: 0; }
+
+  .job-id {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .job-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .job-meta span { display: flex; align-items: center; gap: 4px; color: var(--text-dim); }
+  .job-meta strong { color: var(--text); font-weight: 600; }
+
+  .job-time {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 5px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .job-error-msg {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--danger);
+    background: var(--danger-soft);
+    border-radius: 6px;
+    padding: 4px 8px;
+    display: inline-block;
+  }
+
+  /* Actions column */
+  .job-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  .dl-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--success), #00a884);
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .dl-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,184,148,0.3); }
+  .dl-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .del-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .del-btn:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+
+  /* In-progress mini bar */
+  .mini-bar-track {
+    width: 100%;
+    height: 3px;
+    background: var(--surface-2);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .mini-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--warning), #f9ca24);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  /* ── Confirm overlay ─────────────────────────────── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .overlay.visible { opacity: 1; pointer-events: all; }
+
+  .confirm-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    max-width: 360px;
+    width: 90%;
+    text-align: center;
+    transform: translateY(12px);
+    transition: transform 0.2s;
+  }
+  .overlay.visible .confirm-box { transform: translateY(0); }
+
+  .confirm-box h3 { font-size: 16px; margin-bottom: 8px; }
+  .confirm-box p  { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; line-height: 1.6; }
+
+  .confirm-btns { display: flex; gap: 10px; justify-content: center; }
+
+  .btn-cancel-confirm {
+    padding: 9px 22px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-cancel-confirm:hover { border-color: var(--border-hover); color: var(--text); }
+
+  .btn-confirm-delete {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 8px;
+    background: var(--danger);
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-confirm-delete:hover { background: #c0392b; }
+
+  /* ── Toast ───────────────────────────────────────── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 1000;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast.success { border-color: var(--success); }
+  .toast.error   { border-color: var(--danger); }
+
+  @media (max-width: 600px) {
+    .app { padding: 24px 16px 60px; }
+    .job-card { grid-template-columns: 1fr; gap: 10px; }
+    .job-actions { flex-direction: row; align-items: center; }
+    .config-bar { flex-direction: column; align-items: stretch; }
+    .config-sep { display: none; }
+    .header { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <a href="index.html" class="back-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </a>
+      <div>
+        <div class="page-title">File Manager</div>
+        <div class="page-subtitle">ScanLens · Zeabur server jobs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Server config -->
+  <div class="config-bar">
+    <label>SERVER URL</label>
+    <input type="url" class="config-input" id="serverUrl"
+      placeholder="https://your-app.zeabur.app"
+      value="">
+    <div class="config-sep"></div>
+    <label>API KEY</label>
+    <input type="password" class="config-input" id="apiKey"
+      placeholder="optional"
+      style="max-width:160px">
+    <button class="connect-btn" id="connectBtn" onclick="connect()">Connect</button>
+    <div class="conn-status">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connText">Not connected</span>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <span class="job-count" id="jobCount"></span>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all"    onclick="setFilter('all')">All</button>
+        <button class="filter-tab"        data-filter="done"   onclick="setFilter('done')">Done</button>
+        <button class="filter-tab"        data-filter="active" onclick="setFilter('active')">Active</button>
+        <button class="filter-tab"        data-filter="error"  onclick="setFilter('error')">Error</button>
+      </div>
+    </div>
+    <div class="toolbar-right">
+      <button class="icon-btn" onclick="loadJobs()" title="Refresh">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Refresh
+      </button>
+      <button class="icon-btn danger" onclick="confirmDeleteAll()" title="Delete all finished jobs">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Clear finished
+      </button>
+    </div>
+  </div>
+
+  <!-- Job list area -->
+  <div id="listArea">
+    <div class="state-box">
+      <div class="state-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <h3>Enter your server URL</h3>
+      <p>Connect to your Zeabur OCR backend to view and manage processed files.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Delete confirm overlay -->
+<div class="overlay" id="overlay">
+  <div class="confirm-box">
+    <h3 id="confirmTitle">Delete job?</h3>
+    <p id="confirmMsg">This will permanently remove the result file and job record. This cannot be undone.</p>
+    <div class="confirm-btns">
+      <button class="btn-cancel-confirm" onclick="closeOverlay()">Cancel</button>
+      <button class="btn-confirm-delete" id="confirmOkBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+let baseUrl    = '';
+let authHeader = {};
+let allJobs    = [];
+let currentFilter = 'all';
+let autoRefreshId = null;
+let pendingDeleteId = null;   // single job
+let pendingDeleteAll = false; // bulk
+
+// ── Persist config in sessionStorage ──────────────────
+const urlEl = document.getElementById('serverUrl');
+const keyEl = document.getElementById('apiKey');
+
+const saved = sessionStorage.getItem('scanlens_admin');
+if (saved) {
+  try {
+    const { url, key } = JSON.parse(saved);
+    if (url) { urlEl.value = url; }
+    if (key) { keyEl.value = key; }
+  } catch (_) {}
+}
+
+urlEl.addEventListener('input', resetConn);
+keyEl.addEventListener('input', resetConn);
+
+function resetConn() {
+  setDot('', 'Not connected');
+  stopAutoRefresh();
+}
+
+// ── Connect ────────────────────────────────────────────
+async function connect() {
+  const url = urlEl.value.trim().replace(/\/$/, '');
+  const key = keyEl.value.trim();
+  if (!url) { showToast('Enter a server URL first', 'error'); return; }
+
+  baseUrl    = url;
+  authHeader = key ? { 'X-API-Key': key } : {};
+
+  sessionStorage.setItem('scanlens_admin', JSON.stringify({ url, key }));
+
+  setDot('checking', 'Connecting…');
+  document.getElementById('connectBtn').disabled = true;
+
+  try {
+    const res  = await apiFetch('/api/health');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    setDot('ok', `Connected · v${data.version || '?'} · ${data.jobs} active job(s)`);
+    await loadJobs();
+    startAutoRefresh();
+  } catch (err) {
+    setDot('err', `Failed: ${err.message}`);
+  } finally {
+    document.getElementById('connectBtn').disabled = false;
+  }
+}
+
+// ── Fetch wrapper ──────────────────────────────────────
+function apiFetch(endpoint, opts = {}) {
+  return fetch(baseUrl + endpoint, {
+    ...opts,
+    headers: { ...authHeader, ...(opts.headers || {}) }
+  });
+}
+
+// ── Load jobs ──────────────────────────────────────────
+async function loadJobs() {
+  if (!baseUrl) return;
+  try {
+    const res  = await apiFetch('/api/jobs');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    allJobs = data.jobs || [];
+    render();
+  } catch (err) {
+    showToast('Refresh failed: ' + err.message, 'error');
+  }
+}
+
+// ── Auto-refresh every 3 s while any job is active ────
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoRefreshId = setInterval(async () => {
+    await loadJobs();
+    const hasActive = allJobs.some(j => j.status === 'processing' || j.status === 'queued');
+    if (!hasActive) stopAutoRefresh();
+  }, 3000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshId) { clearInterval(autoRefreshId); autoRefreshId = null; }
+}
+
+// ── Filter ─────────────────────────────────────────────
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.filter === f)
+  );
+  render();
+}
+
+function filteredJobs() {
+  if (currentFilter === 'all')    return allJobs;
+  if (currentFilter === 'done')   return allJobs.filter(j => j.status === 'done');
+  if (currentFilter === 'active') return allJobs.filter(j => j.status === 'processing' || j.status === 'queued');
+  if (currentFilter === 'error')  return allJobs.filter(j => j.status === 'error' || j.status === 'cancelled');
+  return allJobs;
+}
+
+// ── Render ─────────────────────────────────────────────
+function render() {
+  const area = document.getElementById('listArea');
+  const list = filteredJobs();
+
+  const doneCount = allJobs.filter(j => j.status === 'done').length;
+  document.getElementById('jobCount').textContent =
+    allJobs.length === 0 ? '' : `${allJobs.length} job${allJobs.length !== 1 ? 's' : ''}`;
+
+  if (list.length === 0) {
+    area.innerHTML = `
+      <div class="state-box">
+        <div class="state-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <h3>${allJobs.length === 0 ? 'No jobs yet' : 'No jobs match this filter'}</h3>
+        <p>${allJobs.length === 0 ? 'Jobs will appear here once you start processing PDFs.' : 'Try a different filter.'}</p>
+      </div>`;
+    return;
+  }
+
+  area.innerHTML = `<div class="job-list">${list.map(jobCard).join('')}</div>`;
+}
+
+function jobCard(j) {
+  const ago       = timeAgo(j.createdAt);
+  const size      = j.fileSizeBytes ? fmtSize(j.fileSizeBytes) : '—';
+  const conf      = j.avgConfidence != null ? j.avgConfidence.toFixed(1) + '%' : '—';
+  const dur       = j.totalTime     != null ? j.totalTime + 's' : '—';
+  const pages     = j.totalPages    || '?';
+  const shortId   = j.jobId.slice(0, 8) + '…';
+
+  const progressBar = (j.status === 'processing' || j.status === 'queued')
+    ? `<div class="mini-bar-track">
+         <div class="mini-bar-fill" style="width:${j.completedPages && j.totalPages ? Math.round(j.completedPages/j.totalPages*100) : 0}%"></div>
+       </div>`
+    : '';
+
+  const errorMsg = j.error
+    ? `<div class="job-error-msg">⚠ ${escHtml(j.error)}</div>`
+    : '';
+
+  const dlDisabled = (!j.hasResult || j.status !== 'done') ? 'disabled' : '';
+  const dlTitle    = j.hasResult ? 'Download PDF' : 'Result not available';
+
+  return `
+  <div class="job-card ${j.status}" id="card-${j.jobId}">
+    <div class="job-status-col">
+      <span class="status-badge ${j.status}">${j.status}</span>
+    </div>
+
+    <div class="job-info">
+      <div class="job-id">${shortId}</div>
+      <div class="job-meta">
+        <span><strong>${pages}</strong> pages</span>
+        <span><strong>${conf}</strong> confidence</span>
+        <span><strong>${dur}</strong> processing</span>
+        <span><strong>${size}</strong></span>
+      </div>
+      ${progressBar}
+      ${errorMsg}
+      <div class="job-time">${ago}</div>
+    </div>
+
+    <div class="job-actions">
+      <button class="dl-btn" ${dlDisabled} title="${dlTitle}"
+        onclick="downloadJob('${j.jobId}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button class="del-btn" onclick="confirmDelete('${j.jobId}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        Delete
+      </button>
+    </div>
+  </div>`;
+}
+
+// ── Download ───────────────────────────────────────────
+async function downloadJob(jobId) {
+  const job = allJobs.find(j => j.jobId === jobId);
+  if (!job || !job.hasResult) return;
+
+  try {
+    const res = await apiFetch(`/api/ocr/${jobId}/result`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `scanlens_${jobId.slice(0,8)}_ocr.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Download started', 'success');
+  } catch (err) {
+    showToast('Download failed: ' + err.message, 'error');
+  }
+}
+
+// ── Delete (single) ────────────────────────────────────
+function confirmDelete(jobId) {
+  pendingDeleteId  = jobId;
+  pendingDeleteAll = false;
+  const job = allJobs.find(j => j.jobId === jobId);
+  document.getElementById('confirmTitle').textContent = 'Delete this job?';
+  document.getElementById('confirmMsg').textContent   =
+    `Job ${jobId.slice(0,8)}… (${job ? job.totalPages : '?'} pages, ${job?.status}) will be permanently removed.`;
+  document.getElementById('confirmOkBtn').onclick = executeDelete;
+  document.getElementById('overlay').classList.add('visible');
+}
+
+async function executeDelete() {
+  closeOverlay();
+  if (!pendingDeleteId) return;
+  try {
+    const res = await apiFetch(`/api/ocr/${pendingDeleteId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || `HTTP ${res.status}`);
+    }
+    showToast('Job deleted', 'success');
+    await loadJobs();
+  } catch (err) {
+    showToast('Delete failed: ' + err.message, 'error');
+  }
+  pendingDeleteId = null;
+}
+
+// ── Delete all finished ────────────────────────────────
+function confirmDeleteAll() {
+  const finished = allJobs.filter(j => j.status === 'done' || j.status === 'error' || j.status === 'cancelled');
+  if (finished.length === 0) { showToast('No finished jobs to clear', ''); return; }
+  pendingDeleteAll = true;
+  pendingDeleteId  = null;
+  document.getElementById('confirmTitle').textContent = `Delete ${finished.length} finished job${finished.length !== 1 ? 's' : ''}?`;
+  document.getElementById('confirmMsg').textContent   =
+    'All done, error, and cancelled jobs will be permanently removed. Active jobs are not affected.';
+  document.getElementById('confirmOkBtn').onclick = executeDeleteAll;
+  document.getElementById('overlay').classList.add('visible');
+}
+
+async function executeDeleteAll() {
+  closeOverlay();
+  const targets = allJobs.filter(j => j.status === 'done' || j.status === 'error' || j.status === 'cancelled');
+  let deleted = 0, failed = 0;
+  for (const job of targets) {
+    try {
+      const res = await apiFetch(`/api/ocr/${job.jobId}`, { method: 'DELETE' });
+      if (res.ok) deleted++; else failed++;
+    } catch (_) { failed++; }
+  }
+  showToast(
+    `Deleted ${deleted} job${deleted !== 1 ? 's' : ''}${failed ? ` (${failed} failed)` : ''}`,
+    failed ? 'error' : 'success'
+  );
+  await loadJobs();
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('visible');
+}
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay')) closeOverlay();
+});
+
+// ── Helpers ────────────────────────────────────────────
+function setDot(cls, text) {
+  document.getElementById('connDot').className = 'conn-dot ' + cls;
+  document.getElementById('connText').textContent = text;
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024)       return bytes + ' B';
+  if (bytes < 1024*1024)  return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+
+function timeAgo(ms) {
+  const sec = Math.round((Date.now() - ms) / 1000);
+  if (sec < 5)    return 'just now';
+  if (sec < 60)   return sec + 's ago';
+  const min = Math.round(sec / 60);
+  if (min < 60)   return min + 'm ago';
+  const hr = Math.round(min / 60);
+  if (hr < 24)    return hr + 'h ago';
+  return Math.round(hr/24) + 'd ago';
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = 'toast', 2800);
+}
+
+// Auto-connect if we restored a saved URL
+if (urlEl.value) connect();
+</script>
+</body>
+</html>
