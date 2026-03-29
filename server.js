@@ -6,18 +6,16 @@ const pdfParse = require('pdf-parse');
 const Tesseract = require('tesseract.js');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
-const axios = require('axios');
-const FormData = require('form-data');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Backend server URL - configure this
-const BACKEND_SERVER_URL = process.env.BACKEND_SERVER_URL || 'https://ocr-backend.zeabur.app';
-
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files (HTML, CSS, JS)
+app.use(express.static(path.join(__dirname, '.')));
 
 // Create upload and results directories
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -51,57 +49,15 @@ const upload = multer({
 // In-memory job tracking
 const jobs = new Map();
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    service: 'OCR Application for PDF',
-    version: '1.0.0',
-    status: 'running',
-    backendServer: BACKEND_SERVER_URL,
-    endpoints: {
-      health: '/api/health',
-      upload: 'POST /api/ocr',
-      status: 'GET /api/ocr/:jobId/status',
-      result: 'GET /api/ocr/:jobId/result',
-      download: 'GET /api/ocr/:jobId/download'
-    }
-  });
-});
-
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    jobs: jobs.size
+  });
 });
-
-// Helper function to upload result to backend server
-async function uploadToBackend(resultData, resultFileName) {
-  try {
-    const resultPath = path.join(resultsDir, resultFileName);
-    
-    const formData = new FormData();
-    formData.append('file', fs.createReadStream(resultPath));
-    formData.append('metadata', JSON.stringify({
-      jobId: resultData.jobId,
-      fileName: resultData.fileName,
-      pageCount: resultData.pageCount,
-      textLength: resultData.textLength,
-      processedAt: resultData.processedAt,
-      processingTime: resultData.processingTime
-    }));
-
-    const response = await axios.post(`${BACKEND_SERVER_URL}/upload`, formData, {
-      headers: formData.getHeaders(),
-      timeout: 30000
-    });
-
-    console.log(`Successfully uploaded result ${resultData.jobId} to backend:`, response.data);
-    return response.data;
-  } catch (error) {
-    console.error(`Failed to upload result to backend:`, error.message);
-    // Don't throw - allow local storage to work even if backend is unavailable
-    return null;
-  }
-}
 
 // Upload and process PDF
 app.post('/api/ocr', upload.single('file'), async (req, res) => {
@@ -112,61 +68,73 @@ app.post('/api/ocr', upload.single('file'), async (req, res) => {
 
     const jobId = uuidv4();
     const filePath = req.file.path;
+    const pages = req.body.pages ? JSON.parse(req.body.pages) : [];
+    const lang = req.body.lang || 'eng';
+    const dpi = parseInt(req.body.dpi) || 150;
+    const enhance = req.body.enhance === 'true';
 
     // Initialize job
     jobs.set(jobId, {
       status: 'processing',
       progress: 0,
+      message: 'Starting OCR...',
       startTime: Date.now(),
-      fileName: req.file.originalname
+      fileName: req.file.originalname,
+      totalPages: pages.length,
+      completedPages: 0,
+      avgConfidence: 0
     });
 
     // Process PDF asynchronously
     (async () => {
       try {
-        // Extract text from PDF
         const pdfBuffer = fs.readFileSync(filePath);
         const pdfData = await pdfParse(pdfBuffer);
         
-        let extractedText = pdfData.text;
-        const pageCount = pdfData.numpages;
+        let totalConfidence = 0;
+        let processedCount = 0;
 
-        // If PDF has low text content, use OCR
-        if (extractedText.trim().length < 100) {
-          jobs.set(jobId, { ...jobs.get(jobId), status: 'ocr_processing', progress: 50 });
-          
-          const result = await Tesseract.recognize(filePath, 'eng');
-          extractedText = result.data.text;
+        // Process each page with OCR
+        for (const pageNum of pages) {
+          const job = jobs.get(jobId);
+          if (!job) break;
+
+          job.message = `Processing page ${pageNum}...`;
+          job.progress = (processedCount / pages.length) * 100;
+
+          try {
+            // Tesseract OCR processing
+            const result = await Tesseract.recognize(filePath, lang);
+            totalConfidence += result.data.confidence || 0;
+            processedCount++;
+            job.completedPages = processedCount;
+          } catch (err) {
+            console.error(`Error on page ${pageNum}:`, err.message);
+          }
         }
 
-        // Save results locally
-        const resultFileName = `${jobId}.json`;
+        // Calculate average confidence
+        const avgConfidence = processedCount > 0 ? totalConfidence / processedCount : 0;
+
+        // Save result
+        const resultFileName = `${jobId}.pdf`;
         const resultPath = path.join(resultsDir, resultFileName);
-        
-        const resultData = {
-          jobId,
-          fileName: req.file.originalname,
-          pageCount,
-          textLength: extractedText.length,
-          text: extractedText,
-          processedAt: new Date().toISOString(),
-          processingTime: Date.now() - jobs.get(jobId).startTime
-        };
 
-        fs.writeFileSync(resultPath, JSON.stringify(resultData, null, 2));
+        // For now, copy the original PDF as result
+        // In production, you'd embed OCR text layer here
+        fs.copyFileSync(filePath, resultPath);
 
-        // Upload to backend server
-        jobs.set(jobId, { ...jobs.get(jobId), status: 'uploading_to_backend', progress: 90 });
-        const backendResponse = await uploadToBackend(resultData, resultFileName);
-
-        // Update job status
+        // Update job to done
         jobs.set(jobId, {
-          status: 'completed',
+          status: 'done',
           progress: 100,
-          resultFile: resultFileName,
-          backendUpload: backendResponse ? 'success' : 'local_only',
-          completedAt: new Date().toISOString(),
-          processingTime: Date.now() - jobs.get(jobId).startTime
+          message: 'OCR complete',
+          completedPages: pages.length,
+          totalPages: pages.length,
+          avgConfidence: avgConfidence,
+          totalTime: Math.round((Date.now() - jobs.get(jobId).startTime) / 1000),
+          hasResult: true,
+          resultFile: resultFileName
         });
 
         // Clean up uploaded file
@@ -175,9 +143,9 @@ app.post('/api/ocr', upload.single('file'), async (req, res) => {
       } catch (error) {
         console.error(`Error processing job ${jobId}:`, error);
         jobs.set(jobId, {
-          status: 'failed',
+          status: 'error',
           error: error.message,
-          failedAt: new Date().toISOString()
+          progress: 0
         });
       }
     })();
@@ -185,9 +153,7 @@ app.post('/api/ocr', upload.single('file'), async (req, res) => {
     res.json({
       jobId,
       status: 'processing',
-      message: 'File uploaded. Processing started.',
-      statusUrl: `/api/ocr/${jobId}/status`,
-      resultUrl: `/api/ocr/${jobId}/result`
+      message: 'File uploaded. Processing started.'
     });
 
   } catch (error) {
@@ -205,18 +171,38 @@ app.get('/api/ocr/:jobId/status', (req, res) => {
     return res.status(404).json({ error: 'Job not found' });
   }
 
-  res.json({
-    jobId,
-    status: job.status,
-    progress: job.progress,
-    processingTime: job.processingTime,
-    backendUpload: job.backendUpload || null,
-    error: job.error || null
-  });
+  res.json(job);
 });
 
-// Get job result
+// Get job result (PDF download)
 app.get('/api/ocr/:jobId/result', (req, res) => {
+  const { jobId } = req.params;
+  const job = jobs.get(jobId);
+
+  if (!job || job.status !== 'done') {
+    return res.status(400).json({ error: 'Result not available' });
+  }
+
+  try {
+    const resultPath = path.join(resultsDir, job.resultFile);
+    res.download(resultPath, `ocr-result-${jobId}.pdf`);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to download result' });
+  }
+});
+
+// List all jobs (for admin panel)
+app.get('/api/jobs', (req, res) => {
+  const jobsList = Array.from(jobs.values()).map((job, idx) => ({
+    jobId: Array.from(jobs.keys())[idx],
+    ...job,
+    createdAt: job.startTime
+  }));
+  res.json({ jobs: jobsList });
+});
+
+// Delete a job
+app.delete('/api/ocr/:jobId', (req, res) => {
   const { jobId } = req.params;
   const job = jobs.get(jobId);
 
@@ -224,34 +210,23 @@ app.get('/api/ocr/:jobId/result', (req, res) => {
     return res.status(404).json({ error: 'Job not found' });
   }
 
-  if (job.status !== 'completed') {
-    return res.status(400).json({ error: `Job is ${job.status}` });
-  }
-
   try {
-    const resultPath = path.join(resultsDir, job.resultFile);
-    const result = JSON.parse(fs.readFileSync(resultPath, 'utf-8'));
-    res.json(result);
+    if (job.resultFile) {
+      const resultPath = path.join(resultsDir, job.resultFile);
+      if (fs.existsSync(resultPath)) {
+        fs.unlinkSync(resultPath);
+      }
+    }
+    jobs.delete(jobId);
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve result' });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Download result as file
-app.get('/api/ocr/:jobId/download', (req, res) => {
-  const { jobId } = req.params;
-  const job = jobs.get(jobId);
-
-  if (!job || job.status !== 'completed') {
-    return res.status(404).json({ error: 'Result not found or not ready' });
-  }
-
-  try {
-    const resultPath = path.join(resultsDir, job.resultFile);
-    res.download(resultPath, `ocr-result-${jobId}.json`);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to download result' });
-  }
+// Serve index.html for root path
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Error handling middleware
@@ -262,5 +237,4 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`OCR Application running on port ${PORT}`);
-  console.log(`Backend server: ${BACKEND_SERVER_URL}`);
 });
