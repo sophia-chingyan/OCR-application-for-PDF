@@ -1,23 +1,21 @@
 {
-  "name": "scanlens-ocr-server",
+  "name": "ocr-application-for-pdf",
   "version": "1.0.0",
-  "description": "ScanLens server-side OCR backend — deploy to Zeabur",
+  "description": "OCR Application for PDF processing",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "dev": "nodemon server.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
+    "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
-    "pdf-lib": "^1.17.1",
-    "pdf2pic": "^3.1.3",
-    "sharp": "^0.33.4",
-    "tesseract.js": "^5.0.4",
-    "uuid": "^9.0.1"
+    "pdf-parse": "^1.1.1",
+    "tesseract.js": "^4.1.1",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }
