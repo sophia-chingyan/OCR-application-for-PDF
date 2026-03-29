@@ -166,7 +166,6 @@
     align-items: center;
     justify-content: space-between;
   }
-
   .page-range-header .settings-title { margin-bottom: 0; }
 
   .page-count-badge {
@@ -217,12 +216,7 @@
     flex: 1;
   }
   .range-input-group.visible { display: flex; }
-
-  .range-input-group label {
-    font-size: 13px;
-    color: var(--text-dim);
-    white-space: nowrap;
-  }
+  .range-input-group label { font-size: 13px; color: var(--text-dim); white-space: nowrap; }
 
   .range-input {
     background: var(--surface-2);
@@ -241,7 +235,6 @@
   .range-input.error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(225, 112, 85, 0.15); }
 
   .range-hint { font-size: 11px; color: var(--text-dim); padding: 0 24px; margin-bottom: 4px; }
-
   .range-error { font-size: 11px; color: var(--danger); padding: 0 24px 4px; display: none; }
   .range-error.visible { display: block; }
 
@@ -350,6 +343,7 @@
     background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238888a0' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 12px center;
     transition: border-color 0.2s;
+    max-width: 240px;
   }
   select:hover { border-color: var(--accent); }
 
@@ -418,12 +412,7 @@
   }
   .zeabur-config.visible { display: block; }
 
-  .zeabur-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
+  .zeabur-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 
   .zeabur-badge {
     display: inline-flex;
@@ -438,11 +427,9 @@
     border-radius: 20px;
     letter-spacing: 1px;
   }
-
   .zeabur-badge::before {
     content: '';
-    width: 6px;
-    height: 6px;
+    width: 6px; height: 6px;
     border-radius: 50%;
     background: var(--zeabur);
     animation: pulse-dot 2s ease-in-out infinite;
@@ -453,38 +440,18 @@
     50% { opacity: 0.5; transform: scale(0.7); }
   }
 
-  .zeabur-desc {
-    font-size: 12px;
-    color: var(--text-dim);
-    line-height: 1.6;
-    margin-bottom: 16px;
-  }
+  .zeabur-desc { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-bottom: 16px; }
 
-  .zeabur-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
+  .zeabur-fields { display: flex; flex-direction: column; gap: 12px; }
 
-  .field-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
 
   .field-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-dim);
-    font-family: 'Space Mono', monospace;
-    letter-spacing: 0.5px;
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    font-family: 'Space Mono', monospace; letter-spacing: 0.5px;
   }
 
-  .field-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
+  .field-row { display: flex; gap: 8px; align-items: center; }
 
   .text-input {
     background: var(--surface-3);
@@ -517,22 +484,9 @@
   .test-btn:hover { background: var(--zeabur); color: white; }
   .test-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .connection-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    margin-top: 6px;
-    height: 16px;
-  }
+  .connection-status { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-top: 6px; height: 16px; }
 
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--text-dim);
-    flex-shrink: 0;
-  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
   .status-dot.ok { background: var(--success); }
   .status-dot.err { background: var(--danger); }
   .status-dot.checking { background: var(--warning); animation: pulse-dot 1s ease-in-out infinite; }
@@ -551,24 +505,10 @@
   }
   .zeabur-note a { color: var(--zeabur); text-decoration: none; }
   .zeabur-note a:hover { text-decoration: underline; }
-  .zeabur-note code {
-    background: var(--surface-3);
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-size: 10px;
-    color: var(--text);
-  }
+  .zeabur-note code { background: var(--surface-3); padding: 1px 5px; border-radius: 4px; font-size: 10px; color: var(--text); }
 
-  /* Zeabur upload progress extra */
-  .upload-bar-track {
-    width: 100%; height: 4px; background: var(--surface-2);
-    border-radius: 2px; overflow: hidden; margin-top: 8px;
-  }
-  .upload-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--zeabur), #a58ed4);
-    border-radius: 2px; width: 0%; transition: width 0.3s ease;
-  }
+  .upload-bar-track { width: 100%; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+  .upload-bar-fill { height: 100%; background: linear-gradient(90deg, var(--zeabur), #a58ed4); border-radius: 2px; width: 0%; transition: width 0.3s ease; }
 
   /* Buttons row */
   .btn-row { display: flex; gap: 12px; margin-top: 24px; }
@@ -581,19 +521,14 @@
     font-size: 15px; font-weight: 600; cursor: pointer;
     transition: all 0.3s; position: relative; overflow: hidden;
   }
-  .start-btn.zeabur-mode {
-    background: linear-gradient(135deg, var(--zeabur), #5a3a8a);
-  }
+  .start-btn.zeabur-mode { background: linear-gradient(135deg, var(--zeabur), #5a3a8a); }
   .start-btn::before {
     content: ''; position: absolute; inset: 0;
     background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1));
     opacity: 0; transition: opacity 0.3s;
   }
   .start-btn:hover:not(:disabled)::before { opacity: 1; }
-  .start-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(108, 92, 231, 0.3);
-  }
+  .start-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(108, 92, 231, 0.3); }
   .start-btn.zeabur-mode:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(123, 94, 167, 0.3); }
   .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -624,37 +559,22 @@
   }
 
   .progress-mode-indicator {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 16px;
-    font-size: 11px;
-    color: var(--text-dim);
-    font-family: 'Space Mono', monospace;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    font-size: 11px; color: var(--text-dim); font-family: 'Space Mono', monospace;
   }
 
   .progress-mode-pill {
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    padding: 2px 10px; border-radius: 20px; font-size: 10px;
+    font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
   }
   .progress-mode-pill.local { background: var(--accent-soft); color: var(--accent-glow); }
   .progress-mode-pill.server { background: var(--zeabur-soft); color: #c4a0f0; }
 
-  .progress-header {
-    display: flex; justify-content: space-between;
-    align-items: center; margin-bottom: 16px;
-  }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
   .progress-status { font-size: 14px; font-weight: 500; }
   .progress-pct { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--accent); }
 
-  .progress-bar-track {
-    width: 100%; height: 6px; background: var(--surface-2);
-    border-radius: 3px; overflow: hidden;
-  }
+  .progress-bar-track { width: 100%; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
   .progress-bar-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--accent), var(--accent-glow));
@@ -665,10 +585,7 @@
   .progress-detail { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
   .progress-eta { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-family: 'Space Mono', monospace; }
 
-  .page-previews {
-    display: flex; gap: 8px; margin-top: 16px;
-    overflow-x: auto; padding-bottom: 4px;
-  }
+  .page-previews { display: flex; gap: 8px; margin-top: 16px; overflow-x: auto; padding-bottom: 4px; }
   .page-previews::-webkit-scrollbar { height: 4px; }
   .page-previews::-webkit-scrollbar-track { background: transparent; }
   .page-previews::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -733,10 +650,7 @@
     color: white; font-family: 'DM Sans', sans-serif;
     font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s;
   }
-  .download-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(0, 184, 148, 0.3);
-  }
+  .download-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0, 184, 148, 0.3); }
 
   .lang-badge {
     display: inline-block; padding: 3px 10px; border-radius: 20px;
@@ -756,6 +670,7 @@
     .mode-tab { flex: 1; justify-content: center; }
     .field-row { flex-direction: column; }
     .test-btn { width: 100%; }
+    select { max-width: 100%; }
   }
 </style>
 </head>
@@ -765,7 +680,10 @@
   <header class="header">
     <div class="logo">ScanLens</div>
     <h1>Scanned PDF to Readable PDF</h1>
-    <p>Upload a camera-scanned PDF. OCR will extract text while preserving images and layout.<br>Supports auto-detection of English, Traditional Chinese &amp; Simplified Chinese.</p>
+    <!-- FIX: Updated supported languages description -->
+    <p>Upload a camera-scanned PDF. OCR extracts a searchable text layer while preserving images.<br>
+       Supports <strong>English</strong>, <strong>Traditional &amp; Simplified Chinese</strong> (horizontal + vertical),
+       <strong>Japanese</strong> (horizontal + vertical), and <strong>Korean</strong>.</p>
     <a href="admin.html" style="
       display:inline-flex;align-items:center;gap:6px;margin-top:14px;
       padding:7px 16px;border:1px solid var(--border);border-radius:8px;
@@ -863,19 +781,41 @@
       </div>
     </div>
 
+    <!-- FIX: Updated language options — added Korean, Japanese, vertical variants -->
     <div class="setting-row">
       <div>
         <div class="setting-label">Language Detection</div>
-        <div class="setting-desc">Auto-detect scans the first selected page to pick the best model</div>
+        <!-- FIX: Updated description to list all supported languages -->
+        <div class="setting-desc">Auto-detect scans the first page and checks vertical orientation for CJK/Japanese</div>
       </div>
       <select id="langMode">
         <option value="auto">Auto-detect</option>
-        <option value="eng">English only</option>
-        <option value="chi_tra">Traditional Chinese</option>
-        <option value="chi_sim">Simplified Chinese</option>
-        <option value="chi_tra+chi_sim+eng">All three (slower)</option>
+        <optgroup label="English">
+          <option value="eng">English</option>
+        </optgroup>
+        <optgroup label="Traditional Chinese">
+          <option value="chi_tra">Traditional Chinese — Horizontal</option>
+          <option value="chi_tra_vert">Traditional Chinese — Vertical</option>
+        </optgroup>
+        <optgroup label="Simplified Chinese">
+          <option value="chi_sim">Simplified Chinese — Horizontal</option>
+          <option value="chi_sim_vert">Simplified Chinese — Vertical</option>
+        </optgroup>
+        <optgroup label="Japanese">
+          <option value="jpn">Japanese — Horizontal</option>
+          <option value="jpn_vert">Japanese — Vertical</option>
+        </optgroup>
+        <optgroup label="Korean">
+          <option value="kor">Korean</option>
+        </optgroup>
+        <optgroup label="Combined">
+          <option value="chi_tra+chi_sim+eng">Chinese + English (slower)</option>
+          <option value="jpn+kor+eng">Japanese + Korean + English</option>
+          <option value="chi_tra+chi_tra_vert+chi_sim+chi_sim_vert+jpn+jpn_vert+kor+eng">All Languages (slowest)</option>
+        </optgroup>
       </select>
     </div>
+
     <div class="setting-row">
       <div>
         <div class="setting-label">Output Quality</div>
@@ -887,6 +827,7 @@
         <option value="300">High (300 DPI) — slow</option>
       </select>
     </div>
+
     <div class="setting-row">
       <div>
         <div class="setting-label">Image Enhancement</div>
@@ -899,7 +840,7 @@
     </div>
   </div>
 
-  <!-- Zeabur Config Panel (appears below settings when server mode active) -->
+  <!-- Zeabur Config Panel -->
   <div class="zeabur-config" id="zeaburConfig">
     <div class="zeabur-header">
       <div class="zeabur-badge">ZEABUR SERVER</div>
@@ -912,9 +853,7 @@
       <div class="field-group">
         <div class="field-label">SERVICE URL</div>
         <div class="field-row">
-          <input type="url" class="text-input" id="zeaburUrl"
-            placeholder="https://your-app.zeabur.app"
-            value="">
+          <input type="url" class="text-input" id="zeaburUrl" placeholder="https://your-app.zeabur.app" value="">
           <button class="test-btn" id="testConnectionBtn" onclick="testZeaburConnection()">Test</button>
         </div>
         <div class="connection-status" id="connectionStatus">
@@ -925,15 +864,14 @@
 
       <div class="field-group">
         <div class="field-label">API KEY <span style="color:var(--text-dim);font-weight:400;">(optional)</span></div>
-        <input type="password" class="text-input" id="zeaburApiKey"
-          placeholder="sk-... or leave blank if your server has no auth">
+        <input type="password" class="text-input" id="zeaburApiKey" placeholder="Leave blank if no auth configured">
       </div>
     </div>
 
     <div class="zeabur-note">
-      📦 Need a backend? Deploy <code>server.js</code> (included in this package) to Zeabur with one click.<br>
+      📦 Need a backend? Deploy <code>server.js</code> to Zeabur with one click.<br>
       The server expects <code>POST /api/ocr</code> with multipart form data and returns a job ID.<br>
-      Status is polled via <code>GET /api/ocr/:jobId/status</code> — result at <code>GET /api/ocr/:jobId/result</code>.<br>
+      Status polled via <code>GET /api/ocr/:jobId/status</code> — result at <code>GET /api/ocr/:jobId/result</code>.<br>
       <a href="https://zeabur.com" target="_blank" rel="noopener">zeabur.com ↗</a>
     </div>
   </div>
@@ -961,7 +899,6 @@
       <div class="progress-detail" id="progressDetail"></div>
       <div class="progress-eta" id="progressEta"></div>
 
-      <!-- Upload progress (Zeabur only) -->
       <div id="uploadProgressWrap" style="display:none;margin-top:10px;">
         <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;font-family:'Space Mono',monospace;">
           Upload: <span id="uploadPct">0%</span>
@@ -996,92 +933,108 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const { PDFDocument } = PDFLib;
 
-// --- DOM ---
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('fileInput');
-const fileInfo = document.getElementById('fileInfo');
-const fileName = document.getElementById('fileName');
-const fileMeta = document.getElementById('fileMeta');
-const fileRemove = document.getElementById('fileRemove');
-const pageRangeSection = document.getElementById('pageRangeSection');
-const pageCountBadge = document.getElementById('pageCountBadge');
-const rangeInputGroup = document.getElementById('rangeInputGroup');
-const customInputGroup = document.getElementById('customInputGroup');
-const rangeFrom = document.getElementById('rangeFrom');
-const rangeTo = document.getElementById('rangeTo');
-const customRange = document.getElementById('customRange');
-const rangeHint = document.getElementById('rangeHint');
-const rangeError = document.getElementById('rangeError');
-const quickSelect = document.getElementById('quickSelect');
-const pageGridWrapper = document.getElementById('pageGridWrapper');
-const pageGrid = document.getElementById('pageGrid');
-const langMode = document.getElementById('langMode');
-const dpiMode = document.getElementById('dpiMode');
-const enhanceToggle = document.getElementById('enhanceToggle');
-const enhanceLabel = document.getElementById('enhanceLabel');
-const startBtn = document.getElementById('startBtn');
-const cancelBtn = document.getElementById('cancelBtn');
-const progressSection = document.getElementById('progressSection');
-const progressStatus = document.getElementById('progressStatus');
-const progressPct = document.getElementById('progressPct');
-const progressBar = document.getElementById('progressBar');
-const progressDetail = document.getElementById('progressDetail');
-const progressEta = document.getElementById('progressEta');
-const pagePreviews = document.getElementById('pagePreviews');
-const logArea = document.getElementById('logArea');
-const resultSection = document.getElementById('resultSection');
-const resultSummary = document.getElementById('resultSummary');
-const downloadBtn = document.getElementById('downloadBtn');
-const zeaburConfig = document.getElementById('zeaburConfig');
-const zeaburUrl = document.getElementById('zeaburUrl');
-const zeaburApiKey = document.getElementById('zeaburApiKey');
-const uploadProgressWrap = document.getElementById('uploadProgressWrap');
-const uploadBar = document.getElementById('uploadBar');
-const uploadPct = document.getElementById('uploadPct');
+// ─── Language label map (FIX: comprehensive, covers all supported languages) ───
+const LANG_LABELS = {
+  'eng':                    'English',
+  'chi_tra':                'Traditional Chinese (Horizontal)',
+  'chi_tra_vert':           'Traditional Chinese (Vertical)',
+  'chi_sim':                'Simplified Chinese (Horizontal)',
+  'chi_sim_vert':           'Simplified Chinese (Vertical)',
+  'chi_tra+chi_sim':        'Chinese Mixed',
+  'chi_tra_vert+chi_sim_vert': 'Chinese Vertical Mixed',
+  'jpn':                    'Japanese (Horizontal)',
+  'jpn_vert':               'Japanese (Vertical)',
+  'kor':                    'Korean',
+  'chi_tra+chi_sim+eng':    'Chinese + English',
+  'jpn+kor+eng':            'Japanese + Korean + English',
+  'chi_tra+chi_tra_vert+chi_sim+chi_sim_vert+jpn+jpn_vert+kor+eng': 'All Languages'
+};
 
-let selectedFile = null;
-let outputBlob = null;
-let totalPages = 0;
-let currentMode = 'all';
-let selectedPages = new Set();
-let pageThumbnails = {};
-let thumbnailAbort = false;
+function getLangLabel(lang) {
+  return LANG_LABELS[lang] || lang;
+}
+
+// ─── DOM refs ────────────────────────────────────────────────────────────────
+const dropzone          = document.getElementById('dropzone');
+const fileInput         = document.getElementById('fileInput');
+const fileInfo          = document.getElementById('fileInfo');
+const fileName          = document.getElementById('fileName');
+const fileMeta          = document.getElementById('fileMeta');
+const fileRemove        = document.getElementById('fileRemove');
+const pageRangeSection  = document.getElementById('pageRangeSection');
+const pageCountBadge    = document.getElementById('pageCountBadge');
+const rangeInputGroup   = document.getElementById('rangeInputGroup');
+const customInputGroup  = document.getElementById('customInputGroup');
+const rangeFrom         = document.getElementById('rangeFrom');
+const rangeTo           = document.getElementById('rangeTo');
+const customRange       = document.getElementById('customRange');
+const rangeHint         = document.getElementById('rangeHint');
+const rangeError        = document.getElementById('rangeError');
+const quickSelect       = document.getElementById('quickSelect');
+const pageGridWrapper   = document.getElementById('pageGridWrapper');
+const pageGrid          = document.getElementById('pageGrid');
+const langMode          = document.getElementById('langMode');
+const dpiMode           = document.getElementById('dpiMode');
+const enhanceToggle     = document.getElementById('enhanceToggle');
+const enhanceLabel      = document.getElementById('enhanceLabel');
+const startBtn          = document.getElementById('startBtn');
+const cancelBtn         = document.getElementById('cancelBtn');
+const progressSection   = document.getElementById('progressSection');
+const progressStatus    = document.getElementById('progressStatus');
+const progressPct       = document.getElementById('progressPct');
+const progressBar       = document.getElementById('progressBar');
+const progressDetail    = document.getElementById('progressDetail');
+const progressEta       = document.getElementById('progressEta');
+const pagePreviews      = document.getElementById('pagePreviews');
+const logArea           = document.getElementById('logArea');
+const resultSection     = document.getElementById('resultSection');
+const resultSummary     = document.getElementById('resultSummary');
+const downloadBtn       = document.getElementById('downloadBtn');
+const zeaburConfig      = document.getElementById('zeaburConfig');
+const zeaburUrl         = document.getElementById('zeaburUrl');
+const zeaburApiKey      = document.getElementById('zeaburApiKey');
+const uploadProgressWrap = document.getElementById('uploadProgressWrap');
+const uploadBar         = document.getElementById('uploadBar');
+const uploadPct         = document.getElementById('uploadPct');
+
+let selectedFile    = null;
+let outputBlob      = null;
+let totalPages      = 0;
+let currentMode     = 'all';
+let selectedPages   = new Set();
+let pageThumbnails  = {};
+let thumbnailAbort  = false;
 let cancelRequested = false;
 let cachedPdfBuffer = null;
-let processingMode = 'local'; // 'local' | 'zeabur'
-let activeJobId = null;
-let pollInterval = null;
+let processingMode  = 'local';
+let activeJobId     = null;
+let pollInterval    = null;
 
-// --- Processing Mode Switch ---
+// ─── Processing Mode ─────────────────────────────────────────────────────────
 function switchProcessingMode(mode) {
   processingMode = mode;
-  document.getElementById('modeLocal').className = 'mode-tab' + (mode === 'local' ? ' active-local' : '');
-  document.getElementById('modeZeabur').className = 'mode-tab' + (mode === 'zeabur' ? ' active-zeabur' : '');
+  document.getElementById('modeLocal').className  = 'mode-tab' + (mode === 'local'   ? ' active-local'   : '');
+  document.getElementById('modeZeabur').className = 'mode-tab' + (mode === 'zeabur'  ? ' active-zeabur'  : '');
   zeaburConfig.classList.toggle('visible', mode === 'zeabur');
   startBtn.classList.toggle('zeabur-mode', mode === 'zeabur');
   if (selectedFile) updateStartBtn();
 }
 
-// --- Zeabur connection test ---
+// ─── Zeabur connection test ───────────────────────────────────────────────────
 async function testZeaburConnection() {
   const url = zeaburUrl.value.trim();
   if (!url) return;
-
-  const btn = document.getElementById('testConnectionBtn');
-  const dot = document.getElementById('statusDot');
+  const btn  = document.getElementById('testConnectionBtn');
+  const dot  = document.getElementById('statusDot');
   const text = document.getElementById('statusText');
-
   btn.disabled = true;
   dot.className = 'status-dot checking';
   text.textContent = 'Connecting...';
-
   const apiKey = zeaburApiKey.value.trim();
   const headers = { 'Content-Type': 'application/json' };
   if (apiKey) headers['X-API-Key'] = apiKey;
-
   try {
-    const base = url.replace(/\/$/, '');
-    const res = await fetch(`${base}/api/health`, { method: 'GET', headers, signal: AbortSignal.timeout(8000) });
+    const res = await fetch(`${url.replace(/\/$/, '')}/api/health`, { method: 'GET', headers, signal: AbortSignal.timeout(8000) });
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
       dot.className = 'status-dot ok';
@@ -1098,13 +1051,12 @@ async function testZeaburConnection() {
   }
 }
 
-// Listen for URL changes to reset status
 zeaburUrl.addEventListener('input', () => {
   document.getElementById('statusDot').className = 'status-dot';
   document.getElementById('statusText').textContent = 'Press Test to verify connection';
 });
 
-// --- Toggle ---
+// ─── Toggle ───────────────────────────────────────────────────────────────────
 function setupToggle(toggle, label) {
   toggle.addEventListener('click', () => {
     toggle.classList.toggle('active');
@@ -1113,7 +1065,7 @@ function setupToggle(toggle, label) {
 }
 setupToggle(enhanceToggle, enhanceLabel);
 
-// --- File handling ---
+// ─── File handling ────────────────────────────────────────────────────────────
 dropzone.addEventListener('click', () => fileInput.click());
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
 dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
@@ -1126,12 +1078,8 @@ dropzone.addEventListener('drop', e => {
 fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
 
 fileRemove.addEventListener('click', () => {
-  selectedFile = null;
-  totalPages = 0;
-  selectedPages.clear();
-  pageThumbnails = {};
-  thumbnailAbort = true;
-  cachedPdfBuffer = null;
+  selectedFile = null; totalPages = 0; selectedPages.clear();
+  pageThumbnails = {}; thumbnailAbort = true; cachedPdfBuffer = null;
   fileInfo.classList.remove('visible');
   pageRangeSection.classList.remove('visible');
   startBtn.disabled = true;
@@ -1146,7 +1094,6 @@ async function handleFile(f) {
   fileMeta.textContent = formatSize(f.size) + ' • Loading...';
   fileInfo.classList.add('visible');
   resultSection.classList.remove('visible');
-
   try {
     cachedPdfBuffer = await f.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: cachedPdfBuffer.slice(0) }).promise;
@@ -1169,54 +1116,25 @@ function formatSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-// --- Page Range ---
+// ─── Page Range ───────────────────────────────────────────────────────────────
 function setupPageRange() {
-  rangeFrom.max = totalPages;
-  rangeTo.max = totalPages;
-  rangeFrom.value = '';
-  rangeTo.value = '';
-  rangeTo.placeholder = totalPages;
-  customRange.value = '';
-  rangeError.classList.remove('visible');
+  rangeFrom.max = totalPages; rangeTo.max = totalPages;
+  rangeFrom.value = ''; rangeTo.value = ''; rangeTo.placeholder = totalPages;
+  customRange.value = ''; rangeError.classList.remove('visible');
   quickSelect.innerHTML = '';
-  if (totalPages > 5) {
-    addQuickBtn('First 5', () => applyQuick(1, 5));
-    addQuickBtn('First 10', () => applyQuick(1, Math.min(10, totalPages)));
+  if (totalPages > 5)  { addQuickBtn('First 5',  () => applyQuick(1, 5)); addQuickBtn('First 10', () => applyQuick(1, Math.min(10, totalPages))); }
+  if (totalPages > 10) { addQuickBtn('First half', () => applyQuick(1, Math.ceil(totalPages / 2))); addQuickBtn('Last half', () => applyQuick(Math.ceil(totalPages / 2) + 1, totalPages)); }
+  if (totalPages > 2)  {
+    addQuickBtn('Odd pages',  () => { switchToMode('custom'); customRange.value = Array.from({length: totalPages}, (_, i) => i+1).filter(n => n%2).join(', '); parseAndUpdate(); });
+    addQuickBtn('Even pages', () => { switchToMode('custom'); customRange.value = Array.from({length: totalPages}, (_, i) => i+1).filter(n => !(n%2)).join(', '); parseAndUpdate(); });
   }
-  if (totalPages > 10) {
-    addQuickBtn('First half', () => applyQuick(1, Math.ceil(totalPages / 2)));
-    addQuickBtn('Last half', () => applyQuick(Math.ceil(totalPages / 2) + 1, totalPages));
-  }
-  if (totalPages > 2) {
-    addQuickBtn('Odd pages', () => {
-      switchToMode('custom');
-      const odds = [];
-      for (let i = 1; i <= totalPages; i += 2) odds.push(i);
-      customRange.value = odds.join(', ');
-      parseAndUpdate();
-    });
-    addQuickBtn('Even pages', () => {
-      switchToMode('custom');
-      const evens = [];
-      for (let i = 2; i <= totalPages; i += 2) evens.push(i);
-      customRange.value = evens.join(', ');
-      parseAndUpdate();
-    });
-  }
-  pageGrid.innerHTML = '';
-  pageThumbnails = {};
-  thumbsLoaded = false;
+  pageGrid.innerHTML = ''; pageThumbnails = {}; thumbsLoaded = false;
   for (let i = 1; i <= totalPages; i++) {
     const cell = document.createElement('div');
     cell.className = 'page-cell selected';
     cell.dataset.page = i;
-    cell.innerHTML = `
-      <div class="cell-overlay"></div>
-      <span class="page-num">${i}</span>
-      <div class="cell-check">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-    `;
+    cell.innerHTML = `<div class="cell-overlay"></div><span class="page-num">${i}</span>
+      <div class="cell-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
     cell.addEventListener('click', () => togglePageCell(cell, i));
     pageGrid.appendChild(cell);
   }
@@ -1225,8 +1143,7 @@ function setupPageRange() {
 let thumbsLoaded = false;
 async function loadThumbnailsIfNeeded() {
   if (thumbsLoaded || !cachedPdfBuffer) return;
-  thumbsLoaded = true;
-  thumbnailAbort = false;
+  thumbsLoaded = true; thumbnailAbort = false;
   const pdf = await pdfjsLib.getDocument({ data: cachedPdfBuffer.slice(0) }).promise;
   for (let i = 1; i <= totalPages; i++) {
     if (thumbnailAbort) break;
@@ -1234,17 +1151,12 @@ async function loadThumbnailsIfNeeded() {
       const page = await pdf.getPage(i);
       const vp = page.getViewport({ scale: 0.15 });
       const canvas = document.createElement('canvas');
-      canvas.width = vp.width;
-      canvas.height = vp.height;
+      canvas.width = vp.width; canvas.height = vp.height;
       await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
       const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
       pageThumbnails[i] = dataUrl;
       const cell = pageGrid.querySelector(`[data-page="${i}"]`);
-      if (cell && !cell.querySelector('img')) {
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        cell.prepend(img);
-      }
+      if (cell && !cell.querySelector('img')) { const img = document.createElement('img'); img.src = dataUrl; cell.prepend(img); }
       canvas.width = 0; canvas.height = 0;
       if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
     } catch(e) {}
@@ -1253,18 +1165,12 @@ async function loadThumbnailsIfNeeded() {
 
 function addQuickBtn(label, fn) {
   const btn = document.createElement('button');
-  btn.className = 'quick-btn';
-  btn.textContent = label;
+  btn.className = 'quick-btn'; btn.textContent = label;
   btn.addEventListener('click', fn);
   quickSelect.appendChild(btn);
 }
 
-function applyQuick(from, to) {
-  switchToMode('range');
-  rangeFrom.value = from;
-  rangeTo.value = to;
-  parseAndUpdate();
-}
+function applyQuick(from, to) { switchToMode('range'); rangeFrom.value = from; rangeTo.value = to; parseAndUpdate(); }
 
 function switchToMode(mode) {
   document.querySelectorAll('.range-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
@@ -1281,12 +1187,8 @@ document.querySelectorAll('.range-tab').forEach(tab => {
 
 function setMode(mode) {
   currentMode = mode;
-  rangeInputGroup.classList.remove('visible');
-  customInputGroup.classList.remove('visible');
-  pageGridWrapper.classList.remove('visible');
-  rangeHint.textContent = '';
-  rangeError.classList.remove('visible');
-
+  rangeInputGroup.classList.remove('visible'); customInputGroup.classList.remove('visible'); pageGridWrapper.classList.remove('visible');
+  rangeHint.textContent = ''; rangeError.classList.remove('visible');
   if (mode === 'all') {
     selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
     rangeHint.textContent = `All ${totalPages} pages will be processed`;
@@ -1304,8 +1206,7 @@ function setMode(mode) {
     rangeHint.textContent = 'Click pages to select or deselect them';
     loadThumbnailsIfNeeded();
   }
-  updateBadge();
-  updateStartBtn();
+  updateBadge(); updateStartBtn();
 }
 
 rangeFrom.addEventListener('input', parseAndUpdate);
@@ -1314,37 +1215,26 @@ customRange.addEventListener('input', parseAndUpdate);
 
 function parseAndUpdate() {
   rangeError.classList.remove('visible');
-  rangeFrom.classList.remove('error');
-  rangeTo.classList.remove('error');
-  customRange.classList.remove('error');
-
+  rangeFrom.classList.remove('error'); rangeTo.classList.remove('error'); customRange.classList.remove('error');
   if (currentMode === 'range') {
     const from = parseInt(rangeFrom.value) || 1;
-    const to = parseInt(rangeTo.value) || totalPages;
-    if (from < 1 || from > totalPages || to < 1 || to > totalPages) {
-      showRangeError(`Page numbers must be between 1 and ${totalPages}`); return;
-    }
+    const to   = parseInt(rangeTo.value)   || totalPages;
+    if (from < 1 || from > totalPages || to < 1 || to > totalPages) { showRangeError(`Page numbers must be between 1 and ${totalPages}`); return; }
     if (from > to) { showRangeError('Start page must be ≤ end page'); return; }
     selectedPages = new Set();
     for (let i = from; i <= to; i++) selectedPages.add(i);
   } else if (currentMode === 'custom') {
     const val = customRange.value.trim();
-    if (!val) {
-      selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
-      updateBadge(); updateStartBtn(); syncGridToSelection(); return;
-    }
+    if (!val) { selectedPages = new Set(Array.from({ length: totalPages }, (_, i) => i + 1)); updateBadge(); updateStartBtn(); syncGridToSelection(); return; }
     try { selectedPages = parseCustomRange(val); }
     catch (err) { showRangeError(err.message); customRange.classList.add('error'); return; }
   }
-  syncGridToSelection();
-  updateBadge();
-  updateStartBtn();
+  syncGridToSelection(); updateBadge(); updateStartBtn();
 }
 
 function parseCustomRange(str) {
   const pages = new Set();
-  const parts = str.split(',').map(s => s.trim()).filter(Boolean);
-  for (const part of parts) {
+  for (const part of str.split(',').map(s => s.trim()).filter(Boolean)) {
     if (part.includes('-')) {
       const [a, b] = part.split('-').map(s => parseInt(s.trim()));
       if (isNaN(a) || isNaN(b)) throw new Error(`Invalid range: "${part}"`);
@@ -1361,28 +1251,18 @@ function parseCustomRange(str) {
   return pages;
 }
 
-function showRangeError(msg) {
-  rangeError.textContent = msg;
-  rangeError.classList.add('visible');
-}
+function showRangeError(msg) { rangeError.textContent = msg; rangeError.classList.add('visible'); }
 
 function togglePageCell(cell, pageNum) {
   if (currentMode !== 'pick') switchToMode('pick');
-  if (selectedPages.has(pageNum)) {
-    selectedPages.delete(pageNum);
-    cell.classList.remove('selected');
-  } else {
-    selectedPages.add(pageNum);
-    cell.classList.add('selected');
-  }
-  updateBadge();
-  updateStartBtn();
+  if (selectedPages.has(pageNum)) { selectedPages.delete(pageNum); cell.classList.remove('selected'); }
+  else { selectedPages.add(pageNum); cell.classList.add('selected'); }
+  updateBadge(); updateStartBtn();
 }
 
 function syncGridToSelection() {
   pageGrid.querySelectorAll('.page-cell').forEach(cell => {
-    const p = parseInt(cell.dataset.page);
-    cell.classList.toggle('selected', selectedPages.has(p));
+    cell.classList.toggle('selected', selectedPages.has(parseInt(cell.dataset.page)));
   });
 }
 
@@ -1394,10 +1274,8 @@ function updateBadge() {
 function updateStartBtn() {
   const n = selectedPages.size;
   const modeLabel = processingMode === 'zeabur' ? '☁ Upload to Zeabur' : 'Start OCR';
-  if (n === 0) {
-    startBtn.disabled = true;
-    startBtn.textContent = 'Select at least one page';
-  } else {
+  if (n === 0) { startBtn.disabled = true; startBtn.textContent = 'Select at least one page'; }
+  else {
     startBtn.disabled = false;
     startBtn.textContent = n === totalPages
       ? `${modeLabel} — All ${totalPages} pages`
@@ -1405,7 +1283,7 @@ function updateStartBtn() {
   }
 }
 
-// --- Logging ---
+// ─── Logging ───────────────────────────────────────────────────────────────────
 function log(msg, type = '') {
   const entry = document.createElement('div');
   entry.className = 'log-entry ' + type;
@@ -1416,33 +1294,112 @@ function log(msg, type = '') {
   logArea.scrollTop = logArea.scrollHeight;
 }
 
-// --- Language detection ---
+// ─── Language detection ────────────────────────────────────────────────────────
+// FIX: Completely rewritten to detect Korean, Japanese, and CJK correctly
 function detectLanguage(text) {
   if (!text || text.trim().length < 5) return 'eng';
-  let cjkCount = 0, engCount = 0, traIndicators = 0, simIndicators = 0;
-  const traChars = '國學數與對這經區體發聯當會從點問機關個義處應實來將過還後給讓說時種為開黨對質開裡類';
-  const simChars = '国学数与对这经区体发联当会从点问机关个义处应实来将过还后给让说时种为开党对质开里类';
+
+  let cjkCount      = 0;  // CJK Unified Ideographs (shared by Chinese/Japanese)
+  let engCount      = 0;  // Latin alphabet
+  let hangulCount   = 0;  // Korean Hangul syllables + jamo
+  let hiraganaCount = 0;  // Hiragana (exclusive to Japanese)
+  let katakanaCount = 0;  // Katakana (exclusive to Japanese)
+  let traIndicators = 0;  // Traditional Chinese character hits
+  let simIndicators = 0;  // Simplified Chinese character hits
+
+  // Heuristic character lists for Traditional vs Simplified discrimination
+  const traChars = '國學數與對這經區體發聯當會從點問機關個義處應實來將過還後給讓說時種為開黨質裡類書閱讀寫說語陽陰電龍鳳鷹號';
+  const simChars  = '国学数与对这经区体发联当会从点问机关个义处应实来将过还后给让说时种为开党质里类书阅读写说语阳阴电龙凤鹰号';
+
   for (const ch of text) {
     const code = ch.charCodeAt(0);
-    if (code >= 0x4E00 && code <= 0x9FFF) {
+
+    // CJK Unified Ideographs (U+4E00–U+9FFF) + Extension A (U+3400–U+4DBF)
+    if ((code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF)) {
       cjkCount++;
       if (traChars.includes(ch)) traIndicators++;
-      if (simChars.includes(ch)) simIndicators++;
-    } else if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A)) {
-      engCount++;
+      if (simChars.includes(ch))  simIndicators++;
     }
+    // Hangul Syllables (U+AC00–U+D7A3)
+    else if (code >= 0xAC00 && code <= 0xD7A3) { hangulCount++; }
+    // Hangul Jamo (U+1100–U+11FF) and Compatibility Jamo (U+3130–U+318F)
+    else if ((code >= 0x1100 && code <= 0x11FF) || (code >= 0x3130 && code <= 0x318F)) { hangulCount++; }
+    // Hangul Jamo Extended (U+A960–U+A97F, U+D7B0–U+D7FF)
+    else if ((code >= 0xA960 && code <= 0xA97F) || (code >= 0xD7B0 && code <= 0xD7FF)) { hangulCount++; }
+    // Hiragana (U+3040–U+309F) — exclusive to Japanese
+    else if (code >= 0x3040 && code <= 0x309F) { hiraganaCount++; }
+    // Katakana (U+30A0–U+30FF) — exclusive to Japanese
+    else if (code >= 0x30A0 && code <= 0x30FF) { katakanaCount++; }
+    // Latin alphabet (A-Z, a-z)
+    else if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A)) { engCount++; }
   }
-  const total = cjkCount + engCount;
+
+  const japaneseKanaCount = hiraganaCount + katakanaCount;
+  const total = cjkCount + engCount + hangulCount + japaneseKanaCount;
   if (total === 0) return 'eng';
-  if (cjkCount / total > 0.3) {
-    if (traIndicators > simIndicators) return 'chi_tra';
-    if (simIndicators > traIndicators) return 'chi_sim';
-    return 'chi_tra+chi_sim';
+
+  // Korean: significant Hangul presence
+  if (hangulCount / total > 0.15) return 'kor';
+
+  // Japanese: Hiragana/Katakana are unique identifiers (never appear in Chinese)
+  if (japaneseKanaCount > 0 && japaneseKanaCount / total > 0.05) return 'jpn';
+
+  // Chinese (pure CJK without kana markers)
+  if (cjkCount / total > 0.25) {
+    if (traIndicators > simIndicators * 1.2) return 'chi_tra';
+    if (simIndicators > traIndicators * 1.2) return 'chi_sim';
+    return 'chi_tra+chi_sim';  // ambiguous — include both
   }
+
   return 'eng';
 }
 
-// --- Image Enhancement ---
+// FIX: Vertical orientation detection for CJK/Japanese
+// Langs that have a vertical Tesseract model
+const VERT_MAP = {
+  'chi_tra':        'chi_tra_vert',
+  'chi_sim':        'chi_sim_vert',
+  'jpn':            'jpn_vert',
+  'chi_tra+chi_sim': 'chi_tra_vert+chi_sim_vert'
+};
+
+// Auto-detect language AND orientation from image data.
+// Returns the final Tesseract language string to use.
+async function autoDetectLangAndOrientation(imageDataUrl) {
+  // Step 1: broad detection pass with all supported languages
+  // FIX: Added jpn and kor to the detection worker language set
+  const detectWorker = await Tesseract.createWorker('eng+chi_tra+chi_sim+jpn+kor', 1, { logger: () => {} });
+  const detectResult = await detectWorker.recognize(imageDataUrl);
+  const detectedText = detectResult.data.text || '';
+  const baseConf     = detectResult.data.confidence || 0;
+  await detectWorker.terminate();
+
+  const baseLang = detectLanguage(detectedText);
+
+  log(`Initial detection: ${getLangLabel(baseLang)}, confidence ${baseConf.toFixed(1)}%`);
+
+  // Step 2: If we have a CJK/Japanese result with low confidence, check vertical
+  if (VERT_MAP[baseLang] && baseConf < 45) {
+    log(`Low confidence (${baseConf.toFixed(1)}%) — testing vertical orientation...`);
+    const vertLang   = VERT_MAP[baseLang];
+    const vertWorker = await Tesseract.createWorker(vertLang, 1, { logger: () => {} });
+    const vertResult = await vertWorker.recognize(imageDataUrl);
+    const vertConf   = vertResult.data.confidence || 0;
+    await vertWorker.terminate();
+
+    log(`Vertical model confidence: ${vertConf.toFixed(1)}% vs horizontal: ${baseConf.toFixed(1)}%`);
+    if (vertConf > baseConf + 8) {
+      log(`Vertical writing detected — using ${getLangLabel(vertLang)}`, 'success');
+      return vertLang;
+    }
+  }
+
+  const finalLabel = getLangLabel(baseLang);
+  log(`Language detected: ${finalLabel}`, 'success');
+  return baseLang;
+}
+
+// ─── Image Enhancement ────────────────────────────────────────────────────────
 function enhanceImage(canvas) {
   const ctx = canvas.getContext('2d');
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1457,7 +1414,7 @@ function enhanceImage(canvas) {
   return canvas;
 }
 
-// --- Cancel ---
+// ─── Cancel ────────────────────────────────────────────────────────────────────
 cancelBtn.addEventListener('click', () => {
   cancelRequested = true;
   cancelBtn.classList.remove('visible');
@@ -1473,95 +1430,71 @@ cancelBtn.addEventListener('click', () => {
   log('Cancellation requested — stopping...', 'warn');
 });
 
-// --- Start button ---
+// ─── Start button ─────────────────────────────────────────────────────────────
 startBtn.addEventListener('click', async () => {
   if (!selectedFile || selectedPages.size === 0) return;
-  if (processingMode === 'zeabur') {
-    await runZeaburOCR();
-  } else {
-    await runLocalOCR();
-  }
+  if (processingMode === 'zeabur') await runZeaburOCR();
+  else await runLocalOCR();
 });
 
-// ============================================================
+// ═══════════════════════════════════════════════════════════════════════════════
 // ZEABUR SERVER OCR
-// ============================================================
+// ═══════════════════════════════════════════════════════════════════════════════
 async function runZeaburOCR() {
   const serviceUrl = zeaburUrl.value.trim().replace(/\/$/, '');
-  if (!serviceUrl) {
-    alert('Please enter your Zeabur service URL in the settings panel.');
-    return;
-  }
+  if (!serviceUrl) { alert('Please enter your Zeabur service URL in the settings panel.'); return; }
 
-  cancelRequested = false;
-  activeJobId = null;
-  startBtn.disabled = true;
-  startBtn.textContent = 'Uploading...';
+  cancelRequested = false; activeJobId = null;
+  startBtn.disabled = true; startBtn.textContent = 'Uploading...';
   cancelBtn.classList.add('visible');
   progressSection.classList.add('visible');
   resultSection.classList.remove('visible');
-  logArea.innerHTML = '';
-  pagePreviews.innerHTML = '';
-  progressEta.textContent = '';
+  logArea.innerHTML = ''; pagePreviews.innerHTML = ''; progressEta.textContent = '';
   uploadProgressWrap.style.display = 'block';
-  uploadBar.style.width = '0%';
-  uploadPct.textContent = '0%';
+  uploadBar.style.width = '0%'; uploadPct.textContent = '0%';
   progressBar.className = 'progress-bar-fill zeabur';
 
-  // Update mode indicator
   document.getElementById('progressModePill').className = 'progress-mode-pill server';
   document.getElementById('progressModePill').textContent = 'ZEABUR SERVER';
-  document.getElementById('progressModeLabel').textContent = `${serviceUrl}`;
+  document.getElementById('progressModeLabel').textContent = serviceUrl;
 
   const ocrPages = [...selectedPages].sort((a, b) => a - b);
-  const apiKey = zeaburApiKey.value.trim();
-  const headers = {};
-  if (apiKey) headers['X-API-Key'] = apiKey;
+  const apiKey   = zeaburApiKey.value.trim();
+  const headers  = apiKey ? { 'X-API-Key': apiKey } : {};
 
   log(`☁ Zeabur server: ${serviceUrl}`, 'zeabur');
-  log(`Preparing upload — ${ocrPages.length} page(s), ${formatSize(selectedFile.size)}`, '');
+  log(`Preparing upload — ${ocrPages.length} page(s), ${formatSize(selectedFile.size)}`);
 
-  // Build thumbnails for progress display
   for (const p of ocrPages) {
     const thumb = document.createElement('div');
-    thumb.className = 'page-thumb';
-    thumb.id = `thumb-${p}`;
+    thumb.className = 'page-thumb'; thumb.id = `thumb-${p}`;
     thumb.innerHTML = `<div class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
-    if (pageThumbnails[p]) {
-      const img = document.createElement('img');
-      img.src = pageThumbnails[p];
-      thumb.prepend(img);
-    }
+    if (pageThumbnails[p]) { const img = document.createElement('img'); img.src = pageThumbnails[p]; thumb.prepend(img); }
     pagePreviews.appendChild(thumb);
   }
 
   try {
-    // 1. Upload PDF + settings to Zeabur
     updateProgress(2, 'Uploading PDF to server...');
-
     const formData = new FormData();
     formData.append('file', selectedFile, selectedFile.name);
-    formData.append('pages', JSON.stringify(ocrPages));
-    formData.append('lang', langMode.value);
-    formData.append('dpi', dpiMode.value);
+    formData.append('pages',   JSON.stringify(ocrPages));
+    formData.append('lang',    langMode.value);
+    formData.append('dpi',     dpiMode.value);
     formData.append('enhance', enhanceToggle.classList.contains('active') ? 'true' : 'false');
 
-    // Upload with XMLHttpRequest for progress tracking
     const uploadResult = await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `${serviceUrl}/api/ocr`);
       if (apiKey) xhr.setRequestHeader('X-API-Key', apiKey);
-      xhr.timeout = 300000; // 5 min timeout for large files
+      xhr.timeout = 300000;
 
       xhr.upload.addEventListener('progress', e => {
         if (e.lengthComputable) {
           const pct = Math.round(e.loaded / e.total * 100);
-          uploadBar.style.width = pct + '%';
-          uploadPct.textContent = pct + '%';
+          uploadBar.style.width = pct + '%'; uploadPct.textContent = pct + '%';
           updateProgress(2 + pct * 0.18, `Uploading… ${pct}%`);
         }
       });
-
       xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           try { resolve(JSON.parse(xhr.responseText)); }
@@ -1572,41 +1505,28 @@ async function runZeaburOCR() {
           reject(new Error(msg));
         }
       });
-
-      xhr.addEventListener('error', () => reject(new Error('Network error — check CORS and service URL')));
+      xhr.addEventListener('error',   () => reject(new Error('Network error — check CORS and service URL')));
       xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')));
-      xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
-
+      xhr.addEventListener('abort',   () => reject(new Error('Upload cancelled')));
       xhr.send(formData);
     });
 
     uploadProgressWrap.style.display = 'none';
-    uploadBar.style.width = '100%';
-
     activeJobId = uploadResult.jobId;
     if (!activeJobId) throw new Error('Server did not return a job ID');
 
     log(`✓ Upload complete — Job ID: ${activeJobId}`, 'success');
     log('Server is processing OCR...', 'zeabur');
     updateProgress(22, 'Server processing...');
-
-    // 2. Poll for status
     await pollJobStatus(serviceUrl, activeJobId, headers, ocrPages);
 
   } catch (err) {
-    if (!cancelRequested) {
-      log(`Error: ${err.message}`, 'error');
-      updateProgress(0, 'Error occurred');
-    } else {
-      updateProgress(0, 'Cancelled');
-    }
+    if (!cancelRequested) { log(`Error: ${err.message}`, 'error'); updateProgress(0, 'Error occurred'); }
+    else { updateProgress(0, 'Cancelled'); }
   } finally {
     uploadProgressWrap.style.display = 'none';
-    startBtn.textContent = 'Start OCR Processing';
-    startBtn.disabled = false;
-    cancelBtn.classList.remove('visible');
-    cancelRequested = false;
-    activeJobId = null;
+    startBtn.textContent = 'Start OCR Processing'; startBtn.disabled = false;
+    cancelBtn.classList.remove('visible'); cancelRequested = false; activeJobId = null;
     if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
   }
 }
@@ -1614,63 +1534,38 @@ async function runZeaburOCR() {
 async function pollJobStatus(serviceUrl, jobId, headers, ocrPages) {
   return new Promise((resolve, reject) => {
     let lastPage = 0;
-
     pollInterval = setInterval(async () => {
-      if (cancelRequested) {
-        clearInterval(pollInterval);
-        pollInterval = null;
-        resolve();
-        return;
-      }
-
+      if (cancelRequested) { clearInterval(pollInterval); pollInterval = null; resolve(); return; }
       try {
         const res = await fetch(`${serviceUrl}/api/ocr/${jobId}/status`, { headers });
         if (!res.ok) throw new Error(`Status check failed: HTTP ${res.status}`);
         const status = await res.json();
-
-        // Update progress
-        const serverPct = status.progress || 0;
-        const displayPct = 22 + serverPct * 0.73;
-        updateProgress(displayPct, status.message || 'Processing...');
-
-        // Show per-page completions
+        updateProgress(22 + (status.progress || 0) * 0.73, status.message || 'Processing...');
         if (status.completedPages && status.completedPages > lastPage) {
           for (let i = lastPage; i < Math.min(status.completedPages, ocrPages.length); i++) {
-            const pageNum = ocrPages[i];
-            const thumbEl = document.getElementById(`thumb-${pageNum}`);
-            if (thumbEl) {
-              thumbEl.classList.remove('processing');
-              thumbEl.classList.add('done');
-            }
-            log(`Page ${pageNum}: done on server`, 'success');
+            const thumbEl = document.getElementById(`thumb-${ocrPages[i]}`);
+            if (thumbEl) { thumbEl.classList.remove('processing'); thumbEl.classList.add('done'); }
+            log(`Page ${ocrPages[i]}: done on server`, 'success');
           }
-          // Mark current page as processing
           if (status.completedPages < ocrPages.length) {
-            const current = ocrPages[status.completedPages];
-            const thumbEl = document.getElementById(`thumb-${current}`);
-            if (thumbEl) thumbEl.classList.add('processing');
+            const cur = document.getElementById(`thumb-${ocrPages[status.completedPages]}`);
+            if (cur) cur.classList.add('processing');
           }
           lastPage = status.completedPages;
         }
-
         if (status.eta) progressEta.textContent = `~${status.eta}s remaining`;
-
         if (status.status === 'done') {
-          clearInterval(pollInterval);
-          pollInterval = null;
+          clearInterval(pollInterval); pollInterval = null;
           log('Server OCR complete — downloading result...', 'zeabur');
           updateProgress(97, 'Downloading result...');
           await downloadJobResult(serviceUrl, jobId, headers, status);
           resolve();
         } else if (status.status === 'error') {
-          clearInterval(pollInterval);
-          pollInterval = null;
+          clearInterval(pollInterval); pollInterval = null;
           reject(new Error(status.error || 'Server-side OCR failed'));
         }
       } catch (err) {
-        if (!cancelRequested) {
-          log(`Poll error: ${err.message}`, 'warn');
-        }
+        if (!cancelRequested) log(`Poll error: ${err.message}`, 'warn');
       }
     }, 2000);
   });
@@ -1679,41 +1574,27 @@ async function pollJobStatus(serviceUrl, jobId, headers, ocrPages) {
 async function downloadJobResult(serviceUrl, jobId, headers, statusData) {
   const res = await fetch(`${serviceUrl}/api/ocr/${jobId}/result`, { headers });
   if (!res.ok) throw new Error(`Result download failed: HTTP ${res.status}`);
-  const blob = await res.blob();
-  outputBlob = blob;
-
-  updateProgress(100, 'Done!');
-  progressEta.textContent = '';
-  log(`Done! ${formatSize(blob.size)} — text layer embedded`, 'success');
-
-  const processedCount = statusData.completedPages || [...selectedPages].length;
-  const processedPages = [...selectedPages].sort((a, b) => a - b).slice(0, processedCount);
-  const pageDesc = processedCount === totalPages
-    ? `All ${processedCount} pages OCR'd on Zeabur`
-    : `${processedCount} of ${totalPages} pages OCR'd`;
-
-  const totalTime = statusData.totalTime ? `${statusData.totalTime}s` : '—';
-  const avgConf = statusData.avgConfidence ? `${statusData.avgConfidence.toFixed(1)}%` : '—';
-
-  resultSummary.innerHTML = `${pageDesc} • ${totalTime} • Avg. confidence ${avgConf}<br>
+  outputBlob = await res.blob();
+  updateProgress(100, 'Done!'); progressEta.textContent = '';
+  log(`Done! ${formatSize(outputBlob.size)} — text layer embedded`, 'success');
+  const processedCount = statusData.completedPages || selectedPages.size;
+  const pageDesc = processedCount === totalPages ? `All ${processedCount} pages OCR'd on Zeabur` : `${processedCount} of ${totalPages} pages OCR'd`;
+  resultSummary.innerHTML = `${pageDesc} • ${statusData.totalTime ? statusData.totalTime + 's' : '—'} • Avg. confidence ${statusData.avgConfidence ? statusData.avgConfidence.toFixed(1) + '%' : '—'}<br>
     <span class="lang-badge">Zeabur Server</span>
     <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
   resultSection.classList.add('visible');
 }
 
-// ============================================================
+// ═══════════════════════════════════════════════════════════════════════════════
 // LOCAL (IN-BROWSER) OCR
-// ============================================================
+// ═══════════════════════════════════════════════════════════════════════════════
 async function runLocalOCR() {
   cancelRequested = false;
-  startBtn.disabled = true;
-  startBtn.textContent = 'Processing...';
+  startBtn.disabled = true; startBtn.textContent = 'Processing...';
   cancelBtn.classList.add('visible');
   progressSection.classList.add('visible');
   resultSection.classList.remove('visible');
-  logArea.innerHTML = '';
-  pagePreviews.innerHTML = '';
-  progressEta.textContent = '';
+  logArea.innerHTML = ''; pagePreviews.innerHTML = ''; progressEta.textContent = '';
   uploadProgressWrap.style.display = 'none';
   progressBar.className = 'progress-bar-fill';
 
@@ -1721,16 +1602,14 @@ async function runLocalOCR() {
   document.getElementById('progressModePill').textContent = 'IN-BROWSER';
   document.getElementById('progressModeLabel').textContent = 'Tesseract.js · client-side';
 
-  const targetDPI = parseInt(dpiMode.value);
+  const targetDPI   = parseInt(dpiMode.value);
   const langSetting = langMode.value;
-  const doEnhance = enhanceToggle.classList.contains('active');
-  const ocrPages = [...selectedPages].sort((a, b) => a - b);
+  const doEnhance   = enhanceToggle.classList.contains('active');
+  const ocrPages    = [...selectedPages].sort((a, b) => a - b);
 
   log(`OCR target: ${ocrPages.length} page(s) — [${summarizePages(ocrPages)}]`);
   log(`Settings: ${targetDPI} DPI, enhance: ${doEnhance ? 'ON' : 'OFF'}`);
-  if (ocrPages.length < totalPages) {
-    log(`Skipping ${totalPages - ocrPages.length} unselected page(s)`);
-  }
+  if (ocrPages.length < totalPages) log(`Skipping ${totalPages - ocrPages.length} unselected page(s)`);
 
   let worker = null;
 
@@ -1741,48 +1620,41 @@ async function runLocalOCR() {
 
     for (const p of ocrPages) {
       const thumb = document.createElement('div');
-      thumb.className = 'page-thumb';
-      thumb.id = `thumb-${p}`;
+      thumb.className = 'page-thumb'; thumb.id = `thumb-${p}`;
       thumb.innerHTML = `<div class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
-      if (pageThumbnails[p]) {
-        const img = document.createElement('img');
-        img.src = pageThumbnails[p];
-        thumb.prepend(img);
-      }
+      if (pageThumbnails[p]) { const img = document.createElement('img'); img.src = pageThumbnails[p]; thumb.prepend(img); }
       pagePreviews.appendChild(thumb);
     }
 
+    // ── Language / orientation detection ──────────────────────────────────────
     updateProgress(3, 'Detecting language...');
     let ocrLangs = langSetting;
+
     if (langSetting === 'auto') {
-      log('Auto-detect: quick-scanning first page...');
-      const detectPage = await pdf.getPage(ocrPages[0]);
-      const detectVp = detectPage.getViewport({ scale: 1.0 });
+      log('Auto-detect: rendering first page for language and orientation analysis...');
+      const detectPage   = await pdf.getPage(ocrPages[0]);
+      const detectVp     = detectPage.getViewport({ scale: 1.0 }); // ~72 DPI — fast
       const detectCanvas = document.createElement('canvas');
-      detectCanvas.width = detectVp.width;
-      detectCanvas.height = detectVp.height;
+      detectCanvas.width = detectVp.width; detectCanvas.height = detectVp.height;
       await detectPage.render({ canvasContext: detectCanvas.getContext('2d'), viewport: detectVp }).promise;
       const detectImg = detectCanvas.toDataURL('image/jpeg', 0.5);
-      const detectWorker = await Tesseract.createWorker('eng+chi_tra+chi_sim', 1, { logger: m => {} });
-      const detectResult = await detectWorker.recognize(detectImg);
-      const detectedLang = detectLanguage(detectResult.data.text || '');
-      await detectWorker.terminate();
-      detectCanvas.width = 0; detectCanvas.height = 0;
-      ocrLangs = detectedLang;
-      const langLabel = { 'eng': 'English', 'chi_tra': 'Traditional Chinese', 'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese' }[ocrLangs] || ocrLangs;
-      log(`Detected language: ${langLabel}`, 'success');
+      detectCanvas.width = 0; detectCanvas.height = 0; // free memory
+
+      // FIX: autoDetectLangAndOrientation now handles Korean, Japanese, and vertical
+      ocrLangs = await autoDetectLangAndOrientation(detectImg);
+      log(`Using model: ${getLangLabel(ocrLangs)}`, 'success');
     }
 
     updateProgress(8, 'Loading OCR engine...');
     log(`Loading language model: ${ocrLangs}`);
-    worker = await Tesseract.createWorker(ocrLangs, 1, { logger: m => {} });
+    worker = await Tesseract.createWorker(ocrLangs, 1, { logger: () => {} });
     log('OCR engine ready', 'success');
     updateProgress(15, 'Starting page processing...');
 
-    const pagePdfBytes = [];
-    const pageTexts = [];
+    const pagePdfBytes  = [];
+    const pageTexts     = [];
     const detectedLangs = new Set([ocrLangs]);
-    const startTime = Date.now();
+    const startTime     = Date.now();
 
     for (let idx = 0; idx < ocrPages.length; idx++) {
       if (cancelRequested) { log('Processing cancelled by user', 'warn'); break; }
@@ -1794,19 +1666,18 @@ async function runLocalOCR() {
       updateProgress(15 + idx / ocrPages.length * 80, `OCR page ${pageNum} (${idx + 1}/${ocrPages.length})...`);
 
       if (idx > 0) {
-        const elapsed = (Date.now() - startTime) / 1000;
-        const perPage = elapsed / idx;
+        const elapsed  = (Date.now() - startTime) / 1000;
+        const perPage  = elapsed / idx;
         const remaining = perPage * (ocrPages.length - idx);
         progressEta.textContent = `~${Math.ceil(remaining)}s remaining (${perPage.toFixed(1)}s/page)`;
       }
 
       log(`Rendering page ${pageNum} at ${targetDPI} DPI...`);
-      const page = await pdf.getPage(pageNum);
+      const page   = await pdf.getPage(pageNum);
       const origVp = page.getViewport({ scale: 1 });
       const viewport = page.getViewport({ scale: targetDPI / 72 });
       const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      canvas.width = viewport.width; canvas.height = viewport.height;
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
       if (!pageThumbnails[pageNum] && thumbEl) {
@@ -1828,7 +1699,7 @@ async function runLocalOCR() {
       let text = '', confidence = 0, singlePagePdf = null;
       try {
         const result = await worker.recognize(imageData);
-        text = result.data.text || '';
+        text       = result.data.text       || '';
         confidence = result.data.confidence || 0;
         const pdfOutput = await worker.getPDF('ScanLens OCR');
         singlePagePdf = new Uint8Array(pdfOutput.data);
@@ -1836,19 +1707,14 @@ async function runLocalOCR() {
         log(`OCR error on page ${pageNum}: ${err.message}`, 'error');
       }
 
-      const langLabel = {
-        'eng': 'English', 'chi_tra': 'Traditional Chinese',
-        'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese (mixed)',
-        'chi_tra+chi_sim+eng': 'Multilingual'
-      }[ocrLangs] || ocrLangs;
-
-      log(`Page ${pageNum}: ${text.length} chars, confidence ${confidence.toFixed(1)}%, lang: ${langLabel}`, confidence > 50 ? 'success' : 'warn');
+      // FIX: Use shared getLangLabel() covering all languages
+      log(`Page ${pageNum}: ${text.length} chars, confidence ${confidence.toFixed(1)}%, lang: ${getLangLabel(ocrLangs)}`,
+          confidence > 50 ? 'success' : 'warn');
 
       pagePdfBytes.push({ pageNum, pdfBytes: singlePagePdf, imageData, text, confidence, lang: ocrLangs, originalWidth: origVp.width, originalHeight: origVp.height });
       pageTexts.push({ text, confidence });
 
-      thumbEl.classList.remove('processing');
-      thumbEl.classList.add('done');
+      thumbEl.classList.remove('processing'); thumbEl.classList.add('done');
       updateProgress(15 + (idx + 1) / ocrPages.length * 80, `Completed page ${pageNum}`);
       await new Promise(r => setTimeout(r, 10));
     }
@@ -1864,20 +1730,16 @@ async function runLocalOCR() {
         try {
           const srcDoc = await PDFDocument.load(entry.pdfBytes);
           const [copiedPage] = await mergedPdf.copyPages(srcDoc, [0]);
-          mergedPdf.addPage(copiedPage);
-          continue;
+          mergedPdf.addPage(copiedPage); continue;
         } catch (err) {
           log(`  ↳ Merge error for page ${entry.pageNum}, using image fallback`, 'warn');
         }
       }
       const base64 = entry.imageData.split(',')[1];
       const imgBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-      let embeddedImg;
-      if (entry.imageData.startsWith('data:image/jpeg')) {
-        embeddedImg = await mergedPdf.embedJpg(imgBytes);
-      } else {
-        embeddedImg = await mergedPdf.embedPng(imgBytes);
-      }
+      const embeddedImg = entry.imageData.startsWith('data:image/jpeg')
+        ? await mergedPdf.embedJpg(imgBytes)
+        : await mergedPdf.embedPng(imgBytes);
       const imgPage = mergedPdf.addPage([entry.originalWidth, entry.originalHeight]);
       imgPage.drawImage(embeddedImg, { x: 0, y: 0, width: entry.originalWidth, height: entry.originalHeight });
     }
@@ -1886,23 +1748,18 @@ async function runLocalOCR() {
     const mergedBytes = await mergedPdf.save();
     outputBlob = new Blob([mergedBytes], { type: 'application/pdf' });
 
-    await worker.terminate();
-    worker = null;
+    await worker.terminate(); worker = null;
 
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-    updateProgress(100, 'Done!');
-    progressEta.textContent = '';
+    updateProgress(100, 'Done!'); progressEta.textContent = '';
     log(`Done! ${pagePdfBytes.length} page(s), ${formatSize(mergedBytes.length)}, ${totalTime}s total`, 'success');
 
-    const langBadges = [...detectedLangs].map(l => {
-      const label = { 'eng': 'English', 'chi_tra': 'Traditional Chinese', 'chi_sim': 'Simplified Chinese', 'chi_tra+chi_sim': 'Chinese', 'chi_tra+chi_sim+eng': 'Multilingual' }[l] || l;
-      return `<span class="lang-badge">${label}</span>`;
-    }).join(' ');
+    // FIX: Use getLangLabel() for badge display
+    const langBadges = [...detectedLangs].map(l => `<span class="lang-badge">${getLangLabel(l)}</span>`).join(' ');
 
     const ocrResults = pageTexts.filter(r => r.confidence > 0);
-    const avgConf = ocrResults.length > 0
-      ? (ocrResults.reduce((s, p) => s + p.confidence, 0) / ocrResults.length).toFixed(1)
-      : '—';
+    const avgConf    = ocrResults.length > 0
+      ? (ocrResults.reduce((s, p) => s + p.confidence, 0) / ocrResults.length).toFixed(1) : '—';
 
     const processedPages = pagePdfBytes.map(p => p.pageNum);
     const pageDesc = processedPages.length === totalPages
@@ -1911,29 +1768,25 @@ async function runLocalOCR() {
 
     const cancelNote = cancelRequested ? '<br><span style="color:var(--warning);">Processing was cancelled early</span>' : '';
 
-    resultSummary.innerHTML = `${pageDesc} • ${totalTime}s • Avg. confidence ${avgConf}% • ${langBadges}${cancelNote}<br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
+    resultSummary.innerHTML = `${pageDesc} • ${totalTime}s • Avg. confidence ${avgConf}% • ${langBadges}${cancelNote}
+      <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
     resultSection.classList.add('visible');
 
   } catch (err) {
-    if (!cancelRequested) {
-      log(`Fatal error: ${err.message}`, 'error');
-      console.error(err);
-    }
+    if (!cancelRequested) { log(`Fatal error: ${err.message}`, 'error'); console.error(err); }
     updateProgress(0, cancelRequested ? 'Cancelled' : 'Error occurred');
   } finally {
     if (worker) { try { await worker.terminate(); } catch(e) {} }
-    startBtn.textContent = 'Start OCR Processing';
-    startBtn.disabled = false;
-    cancelBtn.classList.remove('visible');
-    cancelRequested = false;
+    startBtn.textContent = 'Start OCR Processing'; startBtn.disabled = false;
+    cancelBtn.classList.remove('visible'); cancelRequested = false;
   }
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function summarizePages(pages) {
   if (pages.length === 0) return '';
-  if (pages.length <= 6) return pages.join(', ');
-  const ranges = [];
-  let start = pages[0], end = pages[0];
+  if (pages.length <= 6)  return pages.join(', ');
+  const ranges = []; let start = pages[0], end = pages[0];
   for (let i = 1; i < pages.length; i++) {
     if (pages[i] === end + 1) { end = pages[i]; }
     else { ranges.push(start === end ? `${start}` : `${start}-${end}`); start = end = pages[i]; }
@@ -1948,19 +1801,16 @@ function updateProgress(pct, detail) {
   if (detail) { progressStatus.textContent = detail; progressDetail.textContent = detail; }
 }
 
-// --- Download ---
+// ─── Download ─────────────────────────────────────────────────────────────────
 downloadBtn.addEventListener('click', () => {
   if (!outputBlob) return;
   const url = URL.createObjectURL(outputBlob);
   const a = document.createElement('a');
   a.href = url;
   a.download = selectedFile.name.replace(/\.pdf$/i, '') + '_OCR.pdf';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
 </script>
-
 </body>
 </html>

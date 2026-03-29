@@ -1,10 +1,11 @@
 /**
- * ScanLens — Zeabur OCR Backend  v1.1.0
+ * ScanLens — Zeabur OCR Backend  v1.2.0
  * ──────────────────────────────────────
+ * Supports: English, Traditional Chinese (H+V), Simplified Chinese (H+V),
+ *           Japanese (H+V), Korean.
+ *
  * Each page is saved to disk immediately after OCR completes.
  * Only after ALL pages finish are they merged into the final PDF.
- * This prevents memory build-up on long jobs and means a crash
- * only loses the page currently being processed, not prior work.
  *
  * Environment variables:
  *   API_KEY      — optional shared secret  (set in Zeabur env vars)
@@ -31,35 +32,51 @@ const { fromBuffer }  = require('pdf2pic');
 const app         = express();
 const PORT        = process.env.PORT        || 3000;
 const MAX_FILE_MB = parseInt(process.env.MAX_FILE_MB || '100');
-const API_KEY     = process.env.API_KEY     || '';   // blank = no auth
+const API_KEY     = process.env.API_KEY     || '';
 
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'DELETE', 'OPTIONS'] }));
 app.use(express.json());
 
 // ─────────────────────────────────────────────────────────
+// Language label map (FIX: comprehensive, all supported languages)
+// ─────────────────────────────────────────────────────────
+const LANG_LABELS = {
+  'eng':                    'English',
+  'chi_tra':                'Traditional Chinese (Horizontal)',
+  'chi_tra_vert':           'Traditional Chinese (Vertical)',
+  'chi_sim':                'Simplified Chinese (Horizontal)',
+  'chi_sim_vert':           'Simplified Chinese (Vertical)',
+  'chi_tra+chi_sim':        'Chinese Mixed',
+  'chi_tra_vert+chi_sim_vert': 'Chinese Vertical Mixed',
+  'jpn':                    'Japanese (Horizontal)',
+  'jpn_vert':               'Japanese (Vertical)',
+  'kor':                    'Korean',
+  'chi_tra+chi_sim+eng':    'Chinese + English',
+  'jpn+kor+eng':            'Japanese + Korean + English',
+  'chi_tra+chi_tra_vert+chi_sim+chi_sim_vert+jpn+jpn_vert+kor+eng': 'All Languages'
+};
+
+function getLangLabel(lang) {
+  return LANG_LABELS[lang] || lang;
+}
+
+// Vertical model mapping for CJK/Japanese auto-detect
+const VERT_MAP = {
+  'chi_tra':        'chi_tra_vert',
+  'chi_sim':        'chi_sim_vert',
+  'jpn':            'jpn_vert',
+  'chi_tra+chi_sim': 'chi_tra_vert+chi_sim_vert'
+};
+
+// ─────────────────────────────────────────────────────────
 // In-memory job store
 // ─────────────────────────────────────────────────────────
-/**
- * Job shape:
- * {
- *   id, status, progress, message,
- *   completedPages, totalPages, eta,
- *   error, resultPath, uploadPath,
- *   pageFiles,          <- array of { pageNum, filePath } written so far
- *   startTime, totalTime, avgConfidence,
- *   createdAt, cancelRequested
- * }
- */
 const jobs = new Map();
 
-// Clean up jobs and their temp files older than 30 minutes
 setInterval(() => {
   const cutoff = Date.now() - 30 * 60 * 1000;
   for (const [id, job] of jobs.entries()) {
-    if (job.createdAt < cutoff) {
-      cleanupJob(job);
-      jobs.delete(id);
-    }
+    if (job.createdAt < cutoff) { cleanupJob(job); jobs.delete(id); }
   }
 }, 5 * 60 * 1000);
 
@@ -76,17 +93,14 @@ function safeUnlink(filePath) {
 }
 
 // ─────────────────────────────────────────────────────────
-// Multer — write uploads to /tmp
+// Multer
 // ─────────────────────────────────────────────────────────
 const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: MAX_FILE_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype === 'application/pdf' || file.originalname.endsWith('.pdf')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only PDF files are accepted'));
-    }
+    if (file.mimetype === 'application/pdf' || file.originalname.endsWith('.pdf')) cb(null, true);
+    else cb(new Error('Only PDF files are accepted'));
   }
 });
 
@@ -106,15 +120,17 @@ function authCheck(req, res, next) {
 app.get('/api/health', (_req, res) => {
   res.json({
     status:    'ok',
-    version:   '1.1.0',
+    version:   '1.2.0',
     jobs:      jobs.size,
     uptime:    Math.round(process.uptime()),
-    maxFileMB: MAX_FILE_MB
+    maxFileMB: MAX_FILE_MB,
+    // FIX: advertise all supported languages
+    supportedLanguages: Object.keys(LANG_LABELS)
   });
 });
 
 // ─────────────────────────────────────────────────────────
-// POST /api/ocr — accept PDF, queue job, return immediately
+// POST /api/ocr
 // ─────────────────────────────────────────────────────────
 app.post('/api/ocr', authCheck, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
@@ -143,20 +159,18 @@ app.post('/api/ocr', authCheck, upload.single('file'), async (req, res) => {
     error:           null,
     resultPath:      null,
     uploadPath,
-    pageFiles:       [],   // populated as each page finishes
+    pageFiles:       [],
     startTime:       Date.now(),
     totalTime:       null,
     avgConfidence:   null,
+    detectedLang:    null,
     createdAt:       Date.now(),
     cancelRequested: false
   };
 
   jobs.set(jobId, job);
-
-  // Respond immediately — client starts polling
   res.status(202).json({ jobId, message: 'Job accepted' });
 
-  // Run OCR in background
   processOCR(job, uploadPath, { pages, lang, dpi, enhance }).catch(err => {
     job.status = 'error';
     job.error  = err.message;
@@ -170,7 +184,6 @@ app.post('/api/ocr', authCheck, upload.single('file'), async (req, res) => {
 app.get('/api/ocr/:jobId/status', authCheck, (req, res) => {
   const job = jobs.get(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
-
   res.json({
     jobId:          job.id,
     status:         job.status,
@@ -181,37 +194,32 @@ app.get('/api/ocr/:jobId/status', authCheck, (req, res) => {
     eta:            job.eta,
     error:          job.error,
     totalTime:      job.totalTime,
-    avgConfidence:  job.avgConfidence
+    avgConfidence:  job.avgConfidence,
+    detectedLang:   job.detectedLang
   });
 });
 
 // ─────────────────────────────────────────────────────────
-// GET /api/ocr/:jobId/result — stream final PDF to client
+// GET /api/ocr/:jobId/result
 // ─────────────────────────────────────────────────────────
 app.get('/api/ocr/:jobId/result', authCheck, (req, res) => {
   const job = jobs.get(req.params.jobId);
-  if (!job)
-    return res.status(404).json({ error: 'Job not found' });
-  if (job.status !== 'done')
-    return res.status(409).json({ error: 'Job not complete yet', status: job.status });
-  if (!job.resultPath || !fs.existsSync(job.resultPath))
-    return res.status(410).json({ error: 'Result file no longer available' });
-
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (job.status !== 'done') return res.status(409).json({ error: 'Job not complete yet', status: job.status });
+  if (!job.resultPath || !fs.existsSync(job.resultPath)) return res.status(410).json({ error: 'Result file no longer available' });
   res.setHeader('Content-Type',        'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="scanlens_ocr_output.pdf"');
   fs.createReadStream(job.resultPath).pipe(res);
 });
 
 // ─────────────────────────────────────────────────────────
-// GET /api/jobs — list all jobs for the file manager
+// GET /api/jobs
 // ─────────────────────────────────────────────────────────
 app.get('/api/jobs', authCheck, (_req, res) => {
   const list = [];
   for (const job of jobs.values()) {
     let fileSizeBytes = 0;
-    if (job.resultPath) {
-      try { fileSizeBytes = fs.statSync(job.resultPath).size; } catch (_) {}
-    }
+    if (job.resultPath) { try { fileSizeBytes = fs.statSync(job.resultPath).size; } catch (_) {} }
     list.push({
       jobId:          job.id,
       status:         job.status,
@@ -219,6 +227,7 @@ app.get('/api/jobs', authCheck, (_req, res) => {
       completedPages: job.completedPages,
       totalTime:      job.totalTime,
       avgConfidence:  job.avgConfidence,
+      detectedLang:   job.detectedLang,
       createdAt:      job.createdAt,
       fileSizeBytes,
       hasResult:      !!(job.resultPath && fs.existsSync(job.resultPath)),
@@ -230,12 +239,12 @@ app.get('/api/jobs', authCheck, (_req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────
-// DELETE /api/ocr/:jobId — remove job record + all its files
+// DELETE /api/ocr/:jobId
 // ─────────────────────────────────────────────────────────
 app.delete('/api/ocr/:jobId', authCheck, (req, res) => {
   const job = jobs.get(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'Job not found' });
-  job.cancelRequested = true;   // stop it if still running
+  job.cancelRequested = true;
   cleanupJob(job);
   jobs.delete(req.params.jobId);
   res.json({ message: 'Job deleted' });
@@ -252,6 +261,68 @@ app.post('/api/ocr/:jobId/cancel', authCheck, (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────
+// Language detection
+// FIX: Completely rewritten — now detects Korean, Japanese, and both Chinese scripts
+// ─────────────────────────────────────────────────────────
+function detectLanguage(text) {
+  if (!text || text.trim().length < 5) return 'eng';
+
+  let cjkCount      = 0;  // CJK Unified Ideographs (Chinese & Japanese kanji)
+  let engCount      = 0;  // Latin alphabet
+  let hangulCount   = 0;  // Korean Hangul
+  let hiraganaCount = 0;  // Hiragana — exclusive to Japanese
+  let katakanaCount = 0;  // Katakana — exclusive to Japanese
+  let traIndicators = 0;  // Traditional Chinese character hits
+  let simIndicators = 0;  // Simplified Chinese character hits
+
+  // Character discrimination lists for Traditional vs Simplified
+  const traChars = '國學數與對這經區體發聯當會從點問機關個義處應實來將過還後給讓說時種為開黨質裡類書閱讀寫語陽陰電龍鳳鷹號';
+  const simChars  = '国学数与对这经区体发联当会从点问机关个义处应实来将过还后给让说时种为开党质里类书阅读写语阳阴电龙凤鹰号';
+
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+
+    // CJK Unified Ideographs (U+4E00–U+9FFF) + CJK Extension A (U+3400–U+4DBF)
+    if ((code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF)) {
+      cjkCount++;
+      if (traChars.includes(ch)) traIndicators++;
+      if (simChars.includes(ch))  simIndicators++;
+    }
+    // Hangul Syllables (U+AC00–U+D7A3)
+    else if (code >= 0xAC00 && code <= 0xD7A3) { hangulCount++; }
+    // Hangul Jamo (U+1100–U+11FF) and Compatibility Jamo (U+3130–U+318F)
+    else if ((code >= 0x1100 && code <= 0x11FF) || (code >= 0x3130 && code <= 0x318F)) { hangulCount++; }
+    // Hangul Extended (U+A960–U+A97F, U+D7B0–U+D7FF)
+    else if ((code >= 0xA960 && code <= 0xA97F) || (code >= 0xD7B0 && code <= 0xD7FF)) { hangulCount++; }
+    // Hiragana (U+3040–U+309F) — unique to Japanese
+    else if (code >= 0x3040 && code <= 0x309F) { hiraganaCount++; }
+    // Katakana (U+30A0–U+30FF) — unique to Japanese
+    else if (code >= 0x30A0 && code <= 0x30FF) { katakanaCount++; }
+    // Latin
+    else if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A)) { engCount++; }
+  }
+
+  const japaneseKanaCount = hiraganaCount + katakanaCount;
+  const total = cjkCount + engCount + hangulCount + japaneseKanaCount;
+  if (total === 0) return 'eng';
+
+  // Korean: significant Hangul presence
+  if (hangulCount / total > 0.15) return 'kor';
+
+  // Japanese: Hiragana/Katakana never appear in Chinese text
+  if (japaneseKanaCount > 0 && japaneseKanaCount / total > 0.05) return 'jpn';
+
+  // Chinese (pure CJK without kana markers)
+  if (cjkCount / total > 0.25) {
+    if (traIndicators > simIndicators * 1.2) return 'chi_tra';
+    if (simIndicators > traIndicators * 1.2) return 'chi_sim';
+    return 'chi_tra+chi_sim';
+  }
+
+  return 'eng';
+}
+
+// ─────────────────────────────────────────────────────────
 // Core OCR pipeline
 // ─────────────────────────────────────────────────────────
 async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
@@ -261,10 +332,8 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
     job.status  = 'processing';
     job.message = 'Reading PDF...';
 
-    // 1. Read the uploaded PDF
     const pdfBytes = fs.readFileSync(pdfPath);
 
-    // 2. Build page-to-image converter
     job.message  = 'Preparing page renderer...';
     job.progress = 5;
 
@@ -277,7 +346,6 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
       height:       Math.round(dpi * 11)
     });
 
-    // Resolve the true page count and validate requested pages
     const tempDoc       = await PDFDocument.load(pdfBytes);
     const totalPdfPages = tempDoc.getPageCount();
 
@@ -288,45 +356,64 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
     job.totalPages = targetPages.length;
     job.message    = `Processing ${targetPages.length} page(s)...`;
 
-    // 3. Language detection (if auto)
+    // ── Language + orientation detection ────────────────────────────────────
     let ocrLang = lang;
+
     if (lang === 'auto') {
-      job.message  = 'Detecting language...';
+      job.message  = 'Detecting language and orientation...';
       job.progress = 8;
 
+      // FIX: Use comprehensive language set including jpn and kor for detection
       const firstImg     = await converter(targetPages[0], { responseType: 'buffer' });
-      const detectWorker = await Tesseract.createWorker('eng+chi_tra+chi_sim', 1, { logger: () => {} });
+      const detectWorker = await Tesseract.createWorker('eng+chi_tra+chi_sim+jpn+kor', 1, { logger: () => {} });
       const detectResult = await detectWorker.recognize(firstImg.buffer);
-      ocrLang            = detectLanguage(detectResult.data.text || '');
+      const detectedText = detectResult.data.text       || '';
+      const baseConf     = detectResult.data.confidence || 0;
       await detectWorker.terminate();
 
-      console.log(`[${job.id}] Detected language: ${ocrLang}`);
+      const baseLang = detectLanguage(detectedText);
+      console.log(`[${job.id}] Language detection: ${getLangLabel(baseLang)}, confidence ${baseConf.toFixed(1)}%`);
+
+      // FIX: Vertical orientation check for CJK / Japanese when confidence is low
+      if (VERT_MAP[baseLang] && baseConf < 45) {
+        console.log(`[${job.id}] Low confidence (${baseConf.toFixed(1)}%) — testing vertical orientation...`);
+        const vertLang   = VERT_MAP[baseLang];
+        const vertWorker = await Tesseract.createWorker(vertLang, 1, { logger: () => {} });
+        const vertResult = await vertWorker.recognize(firstImg.buffer);
+        const vertConf   = vertResult.data.confidence || 0;
+        await vertWorker.terminate();
+
+        console.log(`[${job.id}] Vertical confidence: ${vertConf.toFixed(1)}% vs horizontal: ${baseConf.toFixed(1)}%`);
+        if (vertConf > baseConf + 8) {
+          ocrLang = vertLang;
+          console.log(`[${job.id}] Vertical writing detected — using ${getLangLabel(vertLang)}`);
+        } else {
+          ocrLang = baseLang;
+          console.log(`[${job.id}] Horizontal writing confirmed — using ${getLangLabel(baseLang)}`);
+        }
+      } else {
+        ocrLang = baseLang;
+      }
     }
 
-    // 4. Start main OCR worker
-    job.message  = `Loading OCR model: ${ocrLang}`;
-    job.progress = 12;
+    job.detectedLang = ocrLang;
+    job.message      = `Loading OCR model: ${getLangLabel(ocrLang)}`;
+    job.progress     = 12;
+
     worker = await Tesseract.createWorker(ocrLang, 1, { logger: () => {} });
     console.log(`[${job.id}] OCR worker ready (${ocrLang})`);
 
-    // 5. Process pages one by one — save each to disk immediately after OCR
+    // ── Process pages one-by-one ─────────────────────────────────────────────
     const confidences = [];
     const startTime   = Date.now();
 
     for (let i = 0; i < targetPages.length; i++) {
-
-      // Honour cancel between pages
-      if (job.cancelRequested) {
-        job.status  = 'cancelled';
-        job.message = 'Cancelled by user';
-        return;
-      }
+      if (job.cancelRequested) { job.status = 'cancelled'; job.message = 'Cancelled by user'; return; }
 
       const pageNum    = targetPages[i];
       job.progress     = Math.round(12 + (i / targetPages.length) * 80);
       job.message      = `OCR page ${pageNum} (${i + 1}/${targetPages.length})`;
 
-      // Running ETA
       if (i > 0) {
         const elapsed = (Date.now() - startTime) / 1000;
         job.eta = Math.ceil((elapsed / i) * (targetPages.length - i));
@@ -334,40 +421,32 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
 
       console.log(`[${job.id}] Processing page ${pageNum}...`);
 
-      // Destination for this page's PDF — zero-padded so glob/sort works naturally
       const pageFilePath = path.join(
         os.tmpdir(),
         `${job.id}_page_${String(pageNum).padStart(5, '0')}.pdf`
       );
 
       try {
-        // 5a. Render page → JPEG buffer
         const imgResult = await converter(pageNum, { responseType: 'buffer' });
         let imgBuffer   = imgResult.buffer;
 
-        // 5b. Optional contrast enhancement
         if (enhance) {
           const sharp = require('sharp');
-          imgBuffer   = await sharp(imgBuffer)
-            .normalise()
-            .linear(1.3, -(128 * 0.3))
-            .toBuffer();
+          imgBuffer   = await sharp(imgBuffer).normalise().linear(1.3, -(128 * 0.3)).toBuffer();
         }
 
-        // 5c. Run OCR
         const result     = await worker.recognize(imgBuffer);
         const text       = result.data.text       || '';
         const confidence = result.data.confidence || 0;
         confidences.push(confidence);
-        console.log(`[${job.id}] Page ${pageNum}: ${text.length} chars, conf ${confidence.toFixed(1)}%`);
 
-        // 5d. Get single-page searchable PDF from Tesseract and save to disk
+        // FIX: Use getLangLabel() for consistent logging
+        console.log(`[${job.id}] Page ${pageNum}: ${text.length} chars, conf ${confidence.toFixed(1)}%, lang: ${getLangLabel(ocrLang)}`);
+
         let savedToFile = false;
         try {
           const pdfOut       = await worker.getPDF('ScanLens OCR');
           const pagePdfBytes = new Uint8Array(pdfOut.data);
-
-          // ★ Write this page to disk immediately — no more in-memory accumulation ★
           fs.writeFileSync(pageFilePath, pagePdfBytes);
           savedToFile = true;
           console.log(`[${job.id}] Page ${pageNum} written → ${path.basename(pageFilePath)}`);
@@ -375,7 +454,6 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
           console.warn(`[${job.id}] getPDF failed for page ${pageNum}: ${getPdfErr.message}`);
         }
 
-        // 5e. Fallback: build a plain image-only PDF page and save that instead
         if (!savedToFile) {
           const fallbackDoc = await PDFDocument.create();
           const embedded    = await fallbackDoc.embedJpg(imgBuffer);
@@ -383,40 +461,31 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
           const imgPage     = fallbackDoc.addPage([dims.width, dims.height]);
           imgPage.drawImage(embedded, { x: 0, y: 0, width: dims.width, height: dims.height });
           const fallbackBytes = await fallbackDoc.save();
-
-          // ★ Fallback page also written to disk immediately ★
           fs.writeFileSync(pageFilePath, fallbackBytes);
           console.log(`[${job.id}] Page ${pageNum} written (image fallback) → ${path.basename(pageFilePath)}`);
         }
 
-        // Register the saved file so merge and cleanup can find it
         job.pageFiles.push({ pageNum, filePath: pageFilePath });
 
       } catch (pageErr) {
-        // A single bad page must not abort the whole job
         console.error(`[${job.id}] Error on page ${pageNum}:`, pageErr.message);
       }
 
       job.completedPages = i + 1;
-    } // ── end of page loop ────────────────────────────────
+    }
 
-    // 6. Terminate OCR worker — all pages are done
     await worker.terminate();
     worker = null;
 
-    if (job.pageFiles.length === 0) {
-      throw new Error('No pages were successfully processed');
-    }
+    if (job.pageFiles.length === 0) throw new Error('No pages were successfully processed');
 
-    // 7. Merge all saved per-page PDFs into the final document
+    // ── Merge all per-page PDFs ──────────────────────────────────────────────
     job.message  = `Merging ${job.pageFiles.length} saved page(s) into final PDF...`;
     job.progress = 95;
     console.log(`[${job.id}] Merging ${job.pageFiles.length} page file(s)...`);
 
     const mergedPdf = await PDFDocument.create();
-
-    // Sort by original page number before merging (preserves order)
-    const sorted = [...job.pageFiles].sort((a, b) => a.pageNum - b.pageNum);
+    const sorted    = [...job.pageFiles].sort((a, b) => a.pageNum - b.pageNum);
 
     for (const { pageNum, filePath } of sorted) {
       try {
@@ -425,12 +494,10 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
         const [copied]  = await mergedPdf.copyPages(srcDoc, [0]);
         mergedPdf.addPage(copied);
       } catch (mergeErr) {
-        // Log and skip; one broken page file shouldn't destroy the whole output
         console.error(`[${job.id}] Merge error for page ${pageNum}:`, mergeErr.message);
       }
     }
 
-    // 8. Persist the merged PDF
     job.message  = 'Writing final PDF...';
     job.progress = 98;
 
@@ -440,8 +507,7 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
 
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
     const avgConf   = confidences.length
-      ? confidences.reduce((a, b) => a + b, 0) / confidences.length
-      : 0;
+      ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
 
     job.status        = 'done';
     job.progress      = 100;
@@ -453,48 +519,19 @@ async function processOCR(job, pdfPath, { pages, lang, dpi, enhance }) {
 
     console.log(
       `[${job.id}] Done — ${job.pageFiles.length} pages merged, ` +
-      `${(outBytes.length / 1024 / 1024).toFixed(1)} MB, ${totalTime}s`
+      `${(outBytes.length / 1024 / 1024).toFixed(1)} MB, ${totalTime}s, ` +
+      `lang: ${getLangLabel(ocrLang)}`
     );
 
-    // 9. Clean up per-page temp files and the original upload
     for (const { filePath } of job.pageFiles) safeUnlink(filePath);
-    job.pageFiles = [];   // cleared — files are gone
+    job.pageFiles = [];
     safeUnlink(pdfPath);
 
   } catch (err) {
     if (worker) { try { await worker.terminate(); } catch (_) {} }
     safeUnlink(pdfPath);
-    // Per-page files are left for diagnostics; the 30-min GC will handle them
     throw err;
   }
-}
-
-// ─────────────────────────────────────────────────────────
-// Language detection  (mirrors client-side logic)
-// ─────────────────────────────────────────────────────────
-function detectLanguage(text) {
-  if (!text || text.trim().length < 5) return 'eng';
-  let cjkCount = 0, engCount = 0, traIndicators = 0, simIndicators = 0;
-  const traChars = '國學數與對這經區體發聯當會從點問機關個義處應實來將過還後給讓說時種為開黨對質開裡類';
-  const simChars = '国学数与对这经区体发联当会从点问机关个义处应实来将过还后给让说时种为开党对质开里类';
-  for (const ch of text) {
-    const code = ch.charCodeAt(0);
-    if (code >= 0x4E00 && code <= 0x9FFF) {
-      cjkCount++;
-      if (traChars.includes(ch)) traIndicators++;
-      if (simChars.includes(ch)) simIndicators++;
-    } else if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A)) {
-      engCount++;
-    }
-  }
-  const total = cjkCount + engCount;
-  if (total === 0) return 'eng';
-  if (cjkCount / total > 0.3) {
-    if (traIndicators > simIndicators) return 'chi_tra';
-    if (simIndicators > traIndicators) return 'chi_sim';
-    return 'chi_tra+chi_sim';
-  }
-  return 'eng';
 }
 
 // ─────────────────────────────────────────────────────────
@@ -502,9 +539,7 @@ function detectLanguage(text) {
 // ─────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
   console.error(err.message);
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(413).json({ error: `File too large — max ${MAX_FILE_MB} MB` });
-  }
+  if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: `File too large — max ${MAX_FILE_MB} MB` });
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
@@ -512,7 +547,8 @@ app.use((err, _req, res, _next) => {
 // Start
 // ─────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`ScanLens OCR server v1.1.0 running on port ${PORT}`);
+  console.log(`ScanLens OCR server v1.2.0 running on port ${PORT}`);
   console.log(`Auth: ${API_KEY ? 'enabled (X-API-Key)' : 'disabled'}`);
   console.log(`Max upload: ${MAX_FILE_MB} MB`);
+  console.log(`Supported languages: English, Traditional/Simplified Chinese (H+V), Japanese (H+V), Korean`);
 });
