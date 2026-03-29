@@ -46,6 +46,22 @@ const upload = multer({
 // In-memory job tracking
 const jobs = new Map();
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    service: 'OCR Backend Server',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/api/health',
+      upload: 'POST /api/ocr',
+      status: 'GET /api/ocr/:jobId/status',
+      result: 'GET /api/ocr/:jobId/result',
+      download: 'GET /api/ocr/:jobId/download'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
