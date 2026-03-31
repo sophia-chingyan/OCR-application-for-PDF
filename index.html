@@ -386,6 +386,8 @@
   .result-card h3 { font-size: 18px; margin-bottom: 6px; }
   .result-card p { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; }
 
+  .result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
   .download-btn {
     display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px;
     border: none; border-radius: var(--radius);
@@ -394,6 +396,16 @@
     font-weight: 600; cursor: pointer; transition: all 0.3s;
   }
   .download-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0, 184, 148, 0.3); }
+
+  .save-library-btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px;
+    border: none; border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--accent), #5a4bd1);
+    color: white; font-family: 'DM Sans', sans-serif; font-size: 15px;
+    font-weight: 600; cursor: pointer; transition: all 0.3s;
+  }
+  .save-library-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(108, 92, 231, 0.3); }
+  .save-library-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
   @media (max-width: 600px) {
     .app { padding: 24px 16px 60px; }
@@ -564,10 +576,16 @@
       </div>
       <h3>OCR Complete!</h3>
       <p id="resultSummary"></p>
-      <button class="download-btn" id="downloadBtn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download Readable PDF
-      </button>
+      <div class="result-actions">
+        <button class="download-btn" id="downloadBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Readable PDF
+        </button>
+        <button class="save-library-btn" id="saveLibraryBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Save to Library
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -587,6 +605,7 @@ const LANG_LABELS = {
 };
 function getLangLabel(lang) { return LANG_LABELS[lang] || lang; }
 
+const saveLibraryBtn=document.getElementById('saveLibraryBtn');
 const dropzone=document.getElementById('dropzone'),fileInput=document.getElementById('fileInput'),
   fileInfo=document.getElementById('fileInfo'),fileName=document.getElementById('fileName'),
   fileMeta=document.getElementById('fileMeta'),fileRemove=document.getElementById('fileRemove'),
@@ -883,6 +902,8 @@ async function runLocalOCR(){
   startBtn.disabled=true;startBtn.textContent='Processing...';
   cancelBtn.classList.add('visible');progressSection.classList.add('visible');resultSection.classList.remove('visible');
   logArea.innerHTML='';pagePreviews.innerHTML='';progressEta.textContent='';progressBar.className='progress-bar-fill';
+  saveLibraryBtn.disabled=false;
+  saveLibraryBtn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Save to Library';
 
   const targetDPI=parseInt(dpiMode.value),langSetting=langMode.value,doEnhance=enhanceToggle.classList.contains('active');
   const ocrPages=[...selectedPages].sort((a,b)=>a-b);
@@ -1016,6 +1037,61 @@ downloadBtn.addEventListener('click',()=>{
   a.href=url;
   a.download=downloadName;
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+});
+
+// ── Library save ──
+const LIB_KEY = 'scanlens_lib_v1';
+
+function libUid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+saveLibraryBtn.addEventListener('click', async () => {
+  if (!outputBlob) return;
+  saveLibraryBtn.disabled = true;
+  saveLibraryBtn.textContent = 'Saving…';
+  try {
+    const baseName = selectedFile.name.replace(/\.pdf$/i, '');
+    const pageRangeSuffix = buildPageRangeSuffix(processedOcrPages, totalPages);
+    const saveName = `${baseName}${pageRangeSuffix}_OCR.pdf`;
+
+    // Read blob as data URL
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(outputBlob);
+    });
+
+    // Load existing metadata
+    let meta = [];
+    try { meta = JSON.parse(localStorage.getItem(LIB_KEY + '_meta') || '[]'); } catch(e) {}
+
+    // Check for duplicate (same name + size)
+    const alreadySaved = meta.some(m => m.name === saveName && m.size === outputBlob.size);
+    if (alreadySaved) {
+      saveLibraryBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Already Saved';
+      saveLibraryBtn.disabled = false;
+      return;
+    }
+
+    const id = libUid();
+    const entry = { id, name: saveName, size: outputBlob.size, pages: processedOcrPages.length, addedAt: Date.now() };
+    meta.unshift(entry);
+
+    try {
+      localStorage.setItem(LIB_KEY + '_file_' + id, dataUrl);
+      localStorage.setItem(LIB_KEY + '_meta', JSON.stringify(meta));
+      saveLibraryBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Saved to Library!';
+      saveLibraryBtn.disabled = true;
+    } catch(e) {
+      // Storage quota exceeded — clean up and warn
+      try { localStorage.removeItem(LIB_KEY + '_file_' + id); } catch(_) {}
+      saveLibraryBtn.textContent = 'Storage Full';
+      saveLibraryBtn.disabled = false;
+    }
+  } catch(err) {
+    saveLibraryBtn.textContent = 'Save Failed';
+    saveLibraryBtn.disabled = false;
+  }
 });
 </script>
 </body>
