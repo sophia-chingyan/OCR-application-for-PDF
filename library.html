@@ -531,54 +531,87 @@
 </div>
 
 <script>
-// ── Storage key prefix ──
-const STORE_KEY = 'scanlens_lib_v1';
+// ── IndexedDB — stores Blob objects natively, no base64, no 5 MB cap ──
+const IDB_NAME = 'scanlens_library';
+const IDB_STORE = 'files';
+const IDB_VERSION = 1;
+
+let _db = null;
+
+function openDB() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+        store.createIndex('addedAt', 'addedAt', { unique: false });
+      }
+    };
+    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function idbGetAll() {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).getAll();
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  }));
+}
+
+function idbPut(record) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(record);
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  }));
+}
+
+function idbDelete(id) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  }));
+}
+
+function idbClear() {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).clear();
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  }));
+}
 
 // ── State ──
-let library = [];     // array of {id, name, size, pages, addedAt, dataUrl}
+let library = [];     // array of {id, name, size, pages, addedAt, blob}
 let currentView = 'grid';
 let deleteTarget = null;
 let searchQuery = '';
 let sortMode = 'date-desc';
 
 // ── Persistence ──
-function saveLibrary() {
+async function loadLibrary() {
   try {
-    // Store metadata index separately from binary data
-    const meta = library.map(f => ({id:f.id,name:f.name,size:f.size,pages:f.pages,addedAt:f.addedAt}));
-    localStorage.setItem(STORE_KEY + '_meta', JSON.stringify(meta));
-    // Store each file's dataUrl under its own key
-    library.forEach(f => {
-      if (f.dataUrl) {
-        try { localStorage.setItem(STORE_KEY + '_file_' + f.id, f.dataUrl); } catch(e) {}
-      }
-    });
-  } catch(e) { showToast('Storage full — some files may not have been saved', 'error'); }
-}
-
-function loadLibrary() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY + '_meta');
-    if (!raw) return;
-    const meta = JSON.parse(raw);
-    library = meta.map(m => {
-      const dataUrl = localStorage.getItem(STORE_KEY + '_file_' + m.id) || null;
-      return {...m, dataUrl};
-    });
+    const records = await idbGetAll();
+    library = records;
   } catch(e) { library = []; }
 }
 
-function deleteFromStorage(id) {
+async function deleteFromStorage(id) {
   library = library.filter(f => f.id !== id);
-  localStorage.removeItem(STORE_KEY + '_file_' + id);
-  const meta = library.map(f => ({id:f.id,name:f.name,size:f.size,pages:f.pages,addedAt:f.addedAt}));
-  localStorage.setItem(STORE_KEY + '_meta', JSON.stringify(meta));
+  await idbDelete(id);
 }
 
-function clearStorage() {
-  library.forEach(f => localStorage.removeItem(STORE_KEY + '_file_' + f.id));
-  localStorage.removeItem(STORE_KEY + '_meta');
+async function clearStorage() {
   library = [];
+  await idbClear();
 }
 
 // ── Helpers ──
@@ -603,16 +636,12 @@ function totalPages() {
   return library.reduce((s, f) => s + (f.pages || 0), 0);
 }
 
-// ── Extract PDF page count from data URL ──
-async function getPdfPageCount(dataUrl) {
-  // Use pdf.js if available; otherwise estimate
+// ── Extract PDF page count from a File/Blob ──
+async function getPdfPageCountFromFile(fileOrBlob) {
   if (typeof pdfjsLib === 'undefined') return null;
   try {
-    const base64 = dataUrl.split(',')[1];
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const pdf = await pdfjsLib.getDocument({data: bytes}).promise;
+    const buf = await fileOrBlob.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     return pdf.numPages;
   } catch(e) { return null; }
 }
@@ -626,24 +655,23 @@ async function addFile(file) {
   const dup = library.find(f => f.name === file.name && f.size === file.size);
   if (dup) { showToast(`"${file.name}" is already in your library`, 'error'); return; }
 
-  const reader = new FileReader();
-  reader.onload = async e => {
-    const dataUrl = e.target.result;
-    const pages = await getPdfPageCount(dataUrl);
+  try {
+    const pages = await getPdfPageCountFromFile(file);
     const entry = {
       id: uid(),
       name: file.name,
       size: file.size,
       pages: pages,
       addedAt: Date.now(),
-      dataUrl
+      blob: file             // store the File/Blob directly in IndexedDB
     };
+    await idbPut(entry);
     library.unshift(entry);
-    saveLibrary();
     renderAll();
     showToast(`Added "${file.name}"`, 'success');
-  };
-  reader.readAsDataURL(file);
+  } catch(e) {
+    showToast('Failed to save file', 'error');
+  }
 }
 
 // ── Sort & filter ──
@@ -794,11 +822,13 @@ function escHtml(str) {
 // ── Actions ──
 function downloadFile(id) {
   const f = library.find(x => x.id === id);
-  if (!f || !f.dataUrl) { showToast('File data not available', 'error'); return; }
+  if (!f || !f.blob) { showToast('File data not available', 'error'); return; }
+  const url = URL.createObjectURL(f.blob);
   const a = document.createElement('a');
-  a.href = f.dataUrl;
+  a.href = url;
   a.download = f.name;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
   showToast(`Downloading "${f.name}"`, 'success');
 }
 
@@ -833,7 +863,7 @@ function commitRename(id) {
     const f = library.find(x => x.id === id);
     if (f && newName !== f.name) {
       f.name = newName.endsWith('.pdf') ? newName : newName + '.pdf';
-      saveLibrary();
+      idbPut(f).catch(() => {});
       showToast('Renamed', 'success');
     }
   }
@@ -865,10 +895,10 @@ document.getElementById('deleteCancelBtn').addEventListener('click', () => {
   document.getElementById('deleteModal').classList.remove('visible');
   deleteTarget = null;
 });
-document.getElementById('deleteConfirmBtn').addEventListener('click', () => {
+document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
   if (deleteTarget) {
     const f = library.find(x => x.id === deleteTarget);
-    deleteFromStorage(deleteTarget);
+    await deleteFromStorage(deleteTarget);
     renderAll();
     showToast(`Deleted "${f ? f.name : 'file'}"`, 'success');
     deleteTarget = null;
@@ -878,8 +908,8 @@ document.getElementById('deleteConfirmBtn').addEventListener('click', () => {
 
 document.getElementById('clearCancelBtn').addEventListener('click', () =>
   document.getElementById('clearModal').classList.remove('visible'));
-document.getElementById('clearConfirmBtn').addEventListener('click', () => {
-  clearStorage();
+document.getElementById('clearConfirmBtn').addEventListener('click', async () => {
+  await clearStorage();
   renderAll();
   document.getElementById('clearModal').classList.remove('visible');
   showToast('Library cleared', 'success');
@@ -934,13 +964,6 @@ document.getElementById('listViewBtn').addEventListener('click', () => {
   renderAll();
 });
 
-// ── Listen for files saved from converter tab ──
-window.addEventListener('storage', e => {
-  if (e.key && e.key.startsWith(STORE_KEY)) {
-    loadLibrary(); renderAll();
-  }
-});
-
 // ── Bootstrap ──
 // Load pdf.js lazily for page count detection
 const pdfScript = document.createElement('script');
@@ -948,8 +971,14 @@ pdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.
 pdfScript.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; };
 document.head.appendChild(pdfScript);
 
-loadLibrary();
-renderAll();
+// Reload from IndexedDB whenever the tab becomes visible (handles cross-tab saves)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    loadLibrary().then(renderAll);
+  }
+});
+
+loadLibrary().then(renderAll);
 </script>
 </body>
 </html>
