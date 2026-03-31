@@ -1,6 +1,18 @@
-FROM zeabur/caddy-static
+FROM node:20-alpine
 
-COPY index.html /usr/share/caddy/index.html
-COPY library.html /usr/share/caddy/library.html
+WORKDIR /app
+
+COPY package.json ./
+COPY server.js ./
+COPY library-api.js ./
+COPY index.html ./
+COPY library.html ./
+
+RUN mkdir -p /data
+
+ENV PORT=8080
+ENV LIBRARY_DATA_DIR=/data
 
 EXPOSE 8080
+
+CMD ["npm", "start"]

@@ -530,168 +530,111 @@
   <span id="toastMsg"></span>
 </div>
 
+<script src="/library-api.js"></script>
 <script>
-// ── IndexedDB — stores Blob objects natively, no base64, no 5 MB cap ──
-const IDB_NAME = 'scanlens_library';
-const IDB_STORE = 'files';
-const IDB_VERSION = 1;
-
-let _db = null;
-
-function openDB() {
-  if (_db) return Promise.resolve(_db);
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(IDB_STORE)) {
-        const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
-        store.createIndex('addedAt', 'addedAt', { unique: false });
-      }
-    };
-    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-function idbGetAll() {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).getAll();
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbPut(record) {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(record);
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbDelete(id) {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).delete(id);
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbClear() {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).clear();
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  }));
-}
-
-// ── State ──
-let library = [];     // array of {id, name, size, pages, addedAt, blob}
+let library = [];
 let currentView = 'grid';
 let deleteTarget = null;
 let searchQuery = '';
 let sortMode = 'date-desc';
-
-// ── Persistence ──
-async function loadLibrary() {
-  try {
-    const records = await idbGetAll();
-    library = records;
-  } catch(e) { library = []; }
-}
-
-async function deleteFromStorage(id) {
-  library = library.filter(f => f.id !== id);
-  await idbDelete(id);
-}
-
-async function clearStorage() {
-  library = [];
-  await idbClear();
-}
-
-// ── Helpers ──
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+let pdfReady = false;
+let isUploading = false;
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 function formatDate(ts) {
   const d = new Date(ts);
-  return d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function totalStorageSize() {
-  return library.reduce((s, f) => s + (f.size || 0), 0);
+  return library.reduce((sum, file) => sum + (file.size || 0), 0);
 }
 
 function totalPages() {
-  return library.reduce((s, f) => s + (f.pages || 0), 0);
+  return library.reduce((sum, file) => sum + (file.pages || 0), 0);
 }
 
-// ── Extract PDF page count from a File/Blob ──
+async function loadLibrary(showError = false) {
+  try {
+    library = await libraryApi.listFiles();
+    renderAll();
+  } catch (error) {
+    library = [];
+    renderAll();
+    if (showError) showToast('Failed to load library', 'error');
+  }
+}
+
 async function getPdfPageCountFromFile(fileOrBlob) {
-  if (typeof pdfjsLib === 'undefined') return null;
+  if (!pdfReady || typeof pdfjsLib === 'undefined') return null;
   try {
     const buf = await fileOrBlob.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     return pdf.numPages;
-  } catch(e) { return null; }
+  } catch (error) {
+    return null;
+  }
 }
 
-// ── Add file ──
 async function addFile(file) {
   if (file.type !== 'application/pdf') {
-    showToast('Only PDF files are supported', 'error'); return;
+    showToast('Only PDF files are supported', 'error');
+    return;
   }
-  // Check duplicate by name + size
-  const dup = library.find(f => f.name === file.name && f.size === file.size);
-  if (dup) { showToast(`"${file.name}" is already in your library`, 'error'); return; }
+  if (isUploading) {
+    showToast('Please wait for the current upload to finish', 'error');
+    return;
+  }
 
+  isUploading = true;
   try {
     const pages = await getPdfPageCountFromFile(file);
-    const entry = {
-      id: uid(),
-      name: file.name,
-      size: file.size,
-      pages: pages,
-      addedAt: Date.now(),
-      blob: file             // store the File/Blob directly in IndexedDB
-    };
-    await idbPut(entry);
-    library.unshift(entry);
-    renderAll();
-    showToast(`Added "${file.name}"`, 'success');
-  } catch(e) {
-    showToast('Failed to save file', 'error');
+    const result = await libraryApi.saveFile(file, { name: file.name, pages });
+    if (result.duplicate) {
+      showToast(`"${file.name}" is already in your library`, 'error');
+    } else {
+      library.unshift(result.record);
+      renderAll();
+      showToast(`Added "${result.record.name}"`, 'success');
+    }
+  } catch (error) {
+    showToast(error.message || 'Failed to save file', 'error');
+  } finally {
+    isUploading = false;
   }
 }
 
-// ── Sort & filter ──
 function getDisplayList() {
   let list = [...library];
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
-    list = list.filter(f => f.name.toLowerCase().includes(q));
+    list = list.filter(file => file.name.toLowerCase().includes(q));
   }
-  switch(sortMode) {
-    case 'date-asc':   list.sort((a,b) => a.addedAt - b.addedAt); break;
-    case 'date-desc':  list.sort((a,b) => b.addedAt - a.addedAt); break;
-    case 'name-asc':   list.sort((a,b) => a.name.localeCompare(b.name)); break;
-    case 'name-desc':  list.sort((a,b) => b.name.localeCompare(a.name)); break;
-    case 'size-desc':  list.sort((a,b) => b.size - a.size); break;
+  switch (sortMode) {
+    case 'date-asc':
+      list.sort((a, b) => a.addedAt - b.addedAt);
+      break;
+    case 'date-desc':
+      list.sort((a, b) => b.addedAt - a.addedAt);
+      break;
+    case 'name-asc':
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case 'name-desc':
+      list.sort((a, b) => b.name.localeCompare(a.name));
+      break;
+    case 'size-desc':
+      list.sort((a, b) => b.size - a.size);
+      break;
   }
   return list;
 }
 
-// ── Render ──
 function renderAll() {
   const list = getDisplayList();
   const grid = document.getElementById('fileGrid');
@@ -723,240 +666,278 @@ function renderAll() {
     }
     return;
   }
+
   empty.classList.remove('visible');
   grid.className = 'file-grid' + (currentView === 'list' ? ' list-view' : '');
   grid.innerHTML = '';
 
-  list.forEach(f => {
-    if (currentView === 'grid') {
-      grid.appendChild(makeCard(f));
-    } else {
-      grid.appendChild(makeRow(f));
-    }
+  list.forEach(file => {
+    grid.appendChild(currentView === 'grid' ? makeCard(file) : makeRow(file));
   });
 }
 
-function makeCard(f) {
+function makeCard(file) {
   const el = document.createElement('div');
   el.className = 'file-card';
   el.innerHTML = `
     <div class="card-preview">
       <div class="pdf-icon"><span>PDF</span></div>
       <div class="ocr-badge">OCR</div>
-      ${f.pages ? `<div class="page-badge">${f.pages}p</div>` : ''}
+      ${file.pages ? `<div class="page-badge">${file.pages}p</div>` : ''}
     </div>
     <div class="card-body">
-      <div class="card-name" id="name-${f.id}">${escHtml(f.name)}</div>
-      <input type="text" class="rename-input" id="rename-${f.id}" value="${escHtml(f.name)}">
+      <div class="card-name" id="name-${file.id}">${escHtml(file.name)}</div>
+      <input type="text" class="rename-input" id="rename-${file.id}" value="${escHtml(file.name)}">
       <div class="card-meta">
-        <span>${formatSize(f.size)}</span>
-        <span>${formatDate(f.addedAt)}</span>
+        <span>${formatSize(file.size)}</span>
+        <span>${formatDate(file.addedAt)}</span>
       </div>
     </div>
     <div class="card-actions">
-      <button class="btn-icon" onclick="downloadFile('${f.id}')" title="Download">
+      <button class="btn-icon" onclick="downloadFile('${file.id}')" title="Download">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Save
       </button>
-      <button class="btn-icon" onclick="startRename('${f.id}')" title="Rename">
+      <button class="btn-icon" onclick="startRename('${file.id}')" title="Rename">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
-      <button class="btn-icon danger" onclick="confirmDelete('${f.id}')" title="Delete">
+      <button class="btn-icon danger" onclick="confirmDelete('${file.id}')" title="Delete">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
       </button>
     </div>
   `;
-  // Rename input keydown
-  const input = el.querySelector(`#rename-${f.id}`);
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') commitRename(f.id);
-    if (e.key === 'Escape') cancelRename(f.id);
+  const input = el.querySelector(`#rename-${file.id}`);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') commitRename(file.id);
+    if (event.key === 'Escape') cancelRename(file.id);
   });
-  input.addEventListener('blur', () => commitRename(f.id));
+  input.addEventListener('blur', () => commitRename(file.id));
   return el;
 }
 
-function makeRow(f) {
+function makeRow(file) {
   const el = document.createElement('div');
   el.className = 'file-row';
   el.innerHTML = `
     <div class="row-icon"><span>PDF</span></div>
     <div class="row-info">
-      <div class="row-name" id="name-${f.id}">${escHtml(f.name)}</div>
-      <input type="text" class="rename-input" id="rename-${f.id}" value="${escHtml(f.name)}">
+      <div class="row-name" id="name-${file.id}">${escHtml(file.name)}</div>
+      <input type="text" class="rename-input" id="rename-${file.id}" value="${escHtml(file.name)}">
       <div class="row-meta">
-        <span>${formatSize(f.size)}</span>
-        ${f.pages ? `<span>${f.pages} pages</span>` : ''}
-        <span>Added ${formatDate(f.addedAt)}</span>
+        <span>${formatSize(file.size)}</span>
+        ${file.pages ? `<span>${file.pages} pages</span>` : ''}
+        <span>Added ${formatDate(file.addedAt)}</span>
       </div>
     </div>
     <div class="row-badge">OCR</div>
     <div class="row-actions">
-      <button class="row-btn" onclick="downloadFile('${f.id}')">
+      <button class="row-btn" onclick="downloadFile('${file.id}')">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Save
       </button>
-      <button class="row-btn" onclick="startRename('${f.id}')">
+      <button class="row-btn" onclick="startRename('${file.id}')">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Rename
       </button>
-      <button class="row-btn danger" onclick="confirmDelete('${f.id}')">
+      <button class="row-btn danger" onclick="confirmDelete('${file.id}')">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
         Delete
       </button>
     </div>
   `;
-  const input = el.querySelector(`#rename-${f.id}`);
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') commitRename(f.id);
-    if (e.key === 'Escape') cancelRename(f.id);
+  const input = el.querySelector(`#rename-${file.id}`);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') commitRename(file.id);
+    if (event.key === 'Escape') cancelRename(file.id);
   });
-  input.addEventListener('blur', () => commitRename(f.id));
+  input.addEventListener('blur', () => commitRename(file.id));
   return el;
 }
 
 function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-// ── Actions ──
 function downloadFile(id) {
-  const f = library.find(x => x.id === id);
-  if (!f || !f.blob) { showToast('File data not available', 'error'); return; }
-  const url = URL.createObjectURL(f.blob);
+  const file = library.find(item => item.id === id);
+  if (!file) {
+    showToast('File data not available', 'error');
+    return;
+  }
   const a = document.createElement('a');
-  a.href = url;
-  a.download = f.name;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast(`Downloading "${f.name}"`, 'success');
+  a.href = file.filePath;
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast(`Downloading "${file.name}"`, 'success');
 }
 
 function confirmDelete(id) {
   deleteTarget = id;
-  const f = library.find(x => x.id === id);
+  const file = library.find(item => item.id === id);
   document.getElementById('deleteModalMsg').textContent =
-    `This will permanently remove "${f ? f.name : 'the file'}" from your library.`;
+    `This will permanently remove "${file ? file.name : 'the file'}" from your library.`;
   document.getElementById('deleteModal').classList.add('visible');
 }
 
 function startRename(id) {
-  // Cancel any other active rename
-  document.querySelectorAll('.rename-input.visible').forEach(inp => {
-    cancelRename(inp.id.replace('rename-', ''));
+  document.querySelectorAll('.rename-input.visible').forEach(input => {
+    cancelRename(input.id.replace('rename-', ''));
   });
   const nameEl = document.getElementById('name-' + id);
   const inputEl = document.getElementById('rename-' + id);
   if (!nameEl || !inputEl) return;
+  inputEl.dataset.originalValue = inputEl.value;
   nameEl.classList.add('editing');
   inputEl.classList.add('visible');
   inputEl.focus();
   inputEl.select();
 }
 
-function commitRename(id) {
+async function commitRename(id) {
   const inputEl = document.getElementById('rename-' + id);
   const nameEl = document.getElementById('name-' + id);
   if (!inputEl || !inputEl.classList.contains('visible')) return;
+
   const newName = inputEl.value.trim();
-  if (newName && newName !== '') {
-    const f = library.find(x => x.id === id);
-    if (f && newName !== f.name) {
-      f.name = newName.endsWith('.pdf') ? newName : newName + '.pdf';
-      idbPut(f).catch(() => {});
-      showToast('Renamed', 'success');
-    }
-  }
+  const originalName = inputEl.dataset.originalValue || '';
+
   inputEl.classList.remove('visible');
-  if (nameEl) { nameEl.classList.remove('editing'); nameEl.textContent = library.find(x=>x.id===id)?.name || ''; }
+  if (nameEl) nameEl.classList.remove('editing');
+
+  if (!newName || newName === originalName) {
+    if (nameEl) nameEl.textContent = originalName;
+    inputEl.value = originalName;
+    return;
+  }
+
+  try {
+    const response = await libraryApi.renameFile(id, newName);
+    const index = library.findIndex(item => item.id === id);
+    if (index !== -1) {
+      library[index] = response.record;
+      renderAll();
+    }
+    showToast('Renamed', 'success');
+  } catch (error) {
+    inputEl.value = originalName;
+    if (nameEl) nameEl.textContent = originalName;
+    showToast(error.message || 'Rename failed', 'error');
+  }
 }
 
 function cancelRename(id) {
   const inputEl = document.getElementById('rename-' + id);
   const nameEl = document.getElementById('name-' + id);
-  if (inputEl) inputEl.classList.remove('visible');
+  if (inputEl) {
+    inputEl.classList.remove('visible');
+    if (inputEl.dataset.originalValue) inputEl.value = inputEl.dataset.originalValue;
+  }
   if (nameEl) nameEl.classList.remove('editing');
 }
 
-// ── Toast ──
 let toastTimer;
 function showToast(msg, type = 'success') {
-  const t = document.getElementById('toast');
-  const m = document.getElementById('toastMsg');
+  const toast = document.getElementById('toast');
+  const message = document.getElementById('toastMsg');
   clearTimeout(toastTimer);
-  t.className = 'toast ' + type;
-  m.textContent = msg;
-  requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
-  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  toast.className = 'toast ' + type;
+  message.textContent = msg;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add('show'));
+  });
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-// ── Modal wiring ──
 document.getElementById('deleteCancelBtn').addEventListener('click', () => {
   document.getElementById('deleteModal').classList.remove('visible');
   deleteTarget = null;
 });
+
 document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
-  if (deleteTarget) {
-    const f = library.find(x => x.id === deleteTarget);
-    await deleteFromStorage(deleteTarget);
+  if (!deleteTarget) return;
+  const file = library.find(item => item.id === deleteTarget);
+  try {
+    await libraryApi.deleteFile(deleteTarget);
+    library = library.filter(item => item.id !== deleteTarget);
     renderAll();
-    showToast(`Deleted "${f ? f.name : 'file'}"`, 'success');
+    showToast(`Deleted "${file ? file.name : 'file'}"`, 'success');
+  } catch (error) {
+    showToast(error.message || 'Delete failed', 'error');
+  } finally {
     deleteTarget = null;
+    document.getElementById('deleteModal').classList.remove('visible');
   }
-  document.getElementById('deleteModal').classList.remove('visible');
 });
 
-document.getElementById('clearCancelBtn').addEventListener('click', () =>
-  document.getElementById('clearModal').classList.remove('visible'));
-document.getElementById('clearConfirmBtn').addEventListener('click', async () => {
-  await clearStorage();
-  renderAll();
+document.getElementById('clearCancelBtn').addEventListener('click', () => {
   document.getElementById('clearModal').classList.remove('visible');
-  showToast('Library cleared', 'success');
 });
+
+document.getElementById('clearConfirmBtn').addEventListener('click', async () => {
+  try {
+    await libraryApi.clear();
+    library = [];
+    renderAll();
+    showToast('Library cleared', 'success');
+  } catch (error) {
+    showToast(error.message || 'Failed to clear library', 'error');
+  } finally {
+    document.getElementById('clearModal').classList.remove('visible');
+  }
+});
+
 document.getElementById('clearAllBtn').addEventListener('click', () => {
   document.getElementById('clearCount').textContent = library.length;
   document.getElementById('clearModal').classList.add('visible');
 });
 
-// ── Add file button ──
-document.getElementById('addBtn').addEventListener('click', () =>
-  document.getElementById('addFileInput').click());
-document.getElementById('addFileInput').addEventListener('change', e => {
-  Array.from(e.target.files).forEach(addFile);
-  e.target.value = '';
+document.getElementById('addBtn').addEventListener('click', () => {
+  document.getElementById('addFileInput').click();
 });
 
-// ── Drop zone ──
+document.getElementById('addFileInput').addEventListener('change', event => {
+  Array.from(event.target.files).forEach(addFile);
+  event.target.value = '';
+});
+
 const addDropzone = document.getElementById('addDropzone');
-document.addEventListener('dragover', e => { e.preventDefault(); addDropzone.classList.add('visible', 'drag-over'); });
-document.addEventListener('dragleave', e => { if (!e.relatedTarget) addDropzone.classList.remove('drag-over'); });
-document.addEventListener('drop', e => {
-  e.preventDefault();
+document.addEventListener('dragover', event => {
+  event.preventDefault();
+  addDropzone.classList.add('visible', 'drag-over');
+});
+document.addEventListener('dragleave', event => {
+  if (!event.relatedTarget) addDropzone.classList.remove('drag-over');
+});
+document.addEventListener('drop', event => {
+  event.preventDefault();
   addDropzone.classList.remove('visible', 'drag-over');
-  Array.from(e.dataTransfer.files).forEach(addFile);
+  Array.from(event.dataTransfer.files).forEach(addFile);
 });
 addDropzone.addEventListener('click', () => document.getElementById('addFileInput').click());
 
-// ── Search ──
-document.getElementById('searchInput').addEventListener('input', e => {
-  searchQuery = e.target.value;
+document.getElementById('searchInput').addEventListener('input', event => {
+  searchQuery = event.target.value;
   renderAll();
 });
 
-// ── Sort ──
-document.getElementById('sortSelect').addEventListener('change', e => {
-  sortMode = e.target.value;
+document.getElementById('sortSelect').addEventListener('change', event => {
+  sortMode = event.target.value;
   renderAll();
 });
 
-// ── View toggle ──
 document.getElementById('gridViewBtn').addEventListener('click', () => {
   currentView = 'grid';
   document.getElementById('gridViewBtn').classList.add('active');
   document.getElementById('listViewBtn').classList.remove('active');
   renderAll();
 });
+
 document.getElementById('listViewBtn').addEventListener('click', () => {
   currentView = 'list';
   document.getElementById('listViewBtn').classList.add('active');
@@ -964,21 +945,19 @@ document.getElementById('listViewBtn').addEventListener('click', () => {
   renderAll();
 });
 
-// ── Bootstrap ──
-// Load pdf.js lazily for page count detection
 const pdfScript = document.createElement('script');
 pdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-pdfScript.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; };
+pdfScript.onload = () => {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  pdfReady = true;
+};
 document.head.appendChild(pdfScript);
 
-// Reload from IndexedDB whenever the tab becomes visible (handles cross-tab saves)
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    loadLibrary().then(renderAll);
-  }
+  if (document.visibilityState === 'visible') loadLibrary();
 });
 
-loadLibrary().then(renderAll);
+loadLibrary(true);
 </script>
 </body>
 </html>
