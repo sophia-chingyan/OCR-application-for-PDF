@@ -935,6 +935,8 @@ async function runLocalOCR(){
     resultSummary.innerHTML=`${pageDesc} • ${totalTime}s • Avg. confidence ${avgConf}% • ${langBadges}${cancelNote}
       <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
     resultSection.classList.add('visible');
+
+    saveToLibrary(outputBlob, selectedFile.name, processedOcrPages, totalPages);
   }catch(err){
     if(!cancelRequested){log(`Fatal error: ${err.message}`,'error');console.error(err);}
     updateProgress(0,cancelRequested?'Cancelled':'Error occurred');
@@ -952,6 +954,38 @@ function summarizePages(pages){
 }
 
 function updateProgress(pct,detail){progressBar.style.width=pct+'%';progressPct.textContent=Math.round(pct)+'%';if(detail){progressStatus.textContent=detail;progressDetail.textContent=detail;}}
+
+function saveToLibrary(blob, originalName, processedPages, total) {
+  const LIB_KEY = 'scanlens_lib_v1';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    const baseName = originalName.replace(/\.pdf$/i, '');
+    const pageRangeSuffix = buildPageRangeSuffix(processedPages, total);
+    const libFileName = `${baseName}${pageRangeSuffix}_OCR.pdf`;
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+    let meta = [];
+    try {
+      const raw = localStorage.getItem(LIB_KEY + '_meta');
+      if (raw) meta = JSON.parse(raw);
+    } catch(err) { meta = []; }
+
+    const dup = meta.find(m => m.name === libFileName && m.size === blob.size);
+    if (dup) return;
+
+    const entry = { id, name: libFileName, size: blob.size, pages: processedPages.length, addedAt: Date.now() };
+    meta.unshift(entry);
+
+    try {
+      localStorage.setItem(LIB_KEY + '_file_' + id, dataUrl);
+      localStorage.setItem(LIB_KEY + '_meta', JSON.stringify(meta));
+    } catch(err) {
+      console.warn('Could not save to library — storage may be full:', err);
+    }
+  };
+  reader.readAsDataURL(blob);
+}
 
 downloadBtn.addEventListener('click',()=>{
   if(!outputBlob)return;
