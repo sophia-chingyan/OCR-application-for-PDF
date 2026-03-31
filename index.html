@@ -575,6 +575,7 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const { PDFDocument } = PDFLib;
+const STORE_KEY = 'scanlens_lib_v1';
 
 const LANG_LABELS = {
   'eng':'English','chi_tra':'Traditional Chinese (Horizontal)','chi_tra_vert':'Traditional Chinese (Vertical)',
@@ -609,6 +610,46 @@ let selectedFile=null,outputBlob=null,totalPages=0,currentMode='all',selectedPag
   pageThumbnails={},thumbnailAbort=false,cancelRequested=false,cachedPdfBuffer=null;
 // Tracks the actual pages successfully included in the output PDF
 let processedOcrPages=[];
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+
+function loadLibraryMeta(){
+  try{return JSON.parse(localStorage.getItem(STORE_KEY+'_meta')||'[]');}
+  catch(e){return [];}
+}
+
+function saveLibraryMeta(meta){
+  localStorage.setItem(STORE_KEY+'_meta',JSON.stringify(meta));
+}
+
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(reader.error||new Error('Failed to read blob'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function saveOutputToLibrary(blob,fileName,pageCount){
+  const dataUrl=await blobToDataUrl(blob);
+  const meta=loadLibraryMeta();
+  const existingIndex=meta.findIndex(f=>f.name===fileName);
+  const entry={
+    id:existingIndex>=0?meta[existingIndex].id:uid(),
+    name:fileName,
+    size:blob.size,
+    pages:pageCount,
+    addedAt:Date.now()
+  };
+  if(existingIndex>=0){
+    meta[existingIndex]=entry;
+  }else{
+    meta.unshift(entry);
+  }
+  localStorage.setItem(STORE_KEY+'_file_'+entry.id,dataUrl);
+  saveLibraryMeta(meta);
+}
 
 function setupToggle(toggle,label){toggle.addEventListener('click',()=>{toggle.classList.toggle('active');label.textContent=toggle.classList.contains('active')?'ON':'OFF';});}
 setupToggle(enhanceToggle,enhanceLabel);
@@ -919,6 +960,16 @@ async function runLocalOCR(){
 
     // Record exactly which pages ended up in the output (for filename suffix)
     processedOcrPages = pagePdfBytes.map(p => p.pageNum);
+
+    const baseName = selectedFile.name.replace(/\.pdf$/i, '');
+    const pageRangeSuffix = buildPageRangeSuffix(processedOcrPages, totalPages);
+    const outputFileName = `${baseName}${pageRangeSuffix}_OCR.pdf`;
+    try{
+      await saveOutputToLibrary(outputBlob,outputFileName,processedOcrPages.length);
+      log(`Saved "${outputFileName}" to Library`,'success');
+    }catch(err){
+      log(`Could not save output to Library: ${err.message}`,'warn');
+    }
 
     await worker.terminate();worker=null;
 
