@@ -575,6 +575,7 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const { PDFDocument } = PDFLib;
+const LIBRARY_STORE_KEY = 'scanlens_lib_v1';
 
 const LANG_LABELS = {
   'eng':'English','chi_tra':'Traditional Chinese (Horizontal)','chi_tra_vert':'Traditional Chinese (Vertical)',
@@ -585,6 +586,68 @@ const LANG_LABELS = {
   'chi_tra+chi_tra_vert+chi_sim+chi_sim_vert+jpn+jpn_vert+kor+eng':'All Languages'
 };
 function getLangLabel(lang) { return LANG_LABELS[lang] || lang; }
+
+function createLibraryId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Failed to read blob'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function getOutputFileName() {
+  if (!selectedFile) return 'ScanLens_OCR.pdf';
+  const baseName = selectedFile.name.replace(/\.pdf$/i, '');
+  const pageRangeSuffix = buildPageRangeSuffix(processedOcrPages, totalPages);
+  return `${baseName}${pageRangeSuffix}_OCR.pdf`;
+}
+
+async function saveOutputToLibrary(blob) {
+  const fileName = getOutputFileName();
+  const metaKey = LIBRARY_STORE_KEY + '_meta';
+  const fileMeta = {
+    name: fileName,
+    size: blob.size,
+    pages: processedOcrPages.length || null,
+    addedAt: Date.now()
+  };
+
+  let existingMeta = [];
+  try {
+    existingMeta = JSON.parse(localStorage.getItem(metaKey) || '[]');
+    if (!Array.isArray(existingMeta)) existingMeta = [];
+  } catch (err) {
+    existingMeta = [];
+  }
+
+  const existingEntry = existingMeta.find(entry => entry && entry.name === fileName);
+  const id = existingEntry?.id || createLibraryId();
+  const fileKey = LIBRARY_STORE_KEY + '_file_' + id;
+  const dataUrl = await blobToDataUrl(blob);
+
+  try {
+    localStorage.setItem(fileKey, dataUrl);
+    const nextMeta = [
+      { id, ...fileMeta },
+      ...existingMeta.filter(entry => entry && entry.id !== id)
+    ];
+    localStorage.setItem(metaKey, JSON.stringify(nextMeta));
+    return { saved: true, replaced: Boolean(existingEntry), fileName };
+  } catch (err) {
+    try { localStorage.removeItem(fileKey); } catch (_) {}
+    return {
+      saved: false,
+      replaced: Boolean(existingEntry),
+      fileName,
+      error: err?.message || 'Storage full'
+    };
+  }
+}
 
 const dropzone=document.getElementById('dropzone'),fileInput=document.getElementById('fileInput'),
   fileInfo=document.getElementById('fileInfo'),fileName=document.getElementById('fileName'),
@@ -920,6 +983,8 @@ async function runLocalOCR(){
     // Record exactly which pages ended up in the output (for filename suffix)
     processedOcrPages = pagePdfBytes.map(p => p.pageNum);
 
+    const librarySave = await saveOutputToLibrary(outputBlob);
+
     await worker.terminate();worker=null;
 
     const totalTime=((Date.now()-startTime)/1000).toFixed(1);
@@ -931,10 +996,19 @@ async function runLocalOCR(){
     const avgConf=ocrResults.length>0?(ocrResults.reduce((s,p)=>s+p.confidence,0)/ocrResults.length).toFixed(1):'—';
     const pageDesc=processedOcrPages.length===totalPages?`All ${processedOcrPages.length} pages OCR'd`:`${processedOcrPages.length} of ${totalPages} pages OCR'd — [${summarizePages(processedOcrPages)}]`;
     const cancelNote=cancelRequested?'<br><span style="color:var(--warning);">Processing was cancelled early</span>':'';
+    const libraryNote = librarySave.saved
+      ? `<br><span style="font-size:11px;color:var(--success);margin-top:4px;display:inline-block;">Saved to Library as ${escapeHtml(librarySave.fileName)}</span>`
+      : `<br><span style="font-size:11px;color:var(--warning);margin-top:4px;display:inline-block;">Output ready to download, but Library save failed: ${escapeHtml(librarySave.error || 'Storage full')}</span>`;
 
     resultSummary.innerHTML=`${pageDesc} • ${totalTime}s • Avg. confidence ${avgConf}% • ${langBadges}${cancelNote}
-      <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
+      <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>${libraryNote}`;
     resultSection.classList.add('visible');
+    log(
+      librarySave.saved
+        ? `Saved output to Library: ${librarySave.fileName}`
+        : `Library save failed: ${librarySave.error || 'Storage full'}`,
+      librarySave.saved ? 'success' : 'warn'
+    );
   }catch(err){
     if(!cancelRequested){log(`Fatal error: ${err.message}`,'error');console.error(err);}
     updateProgress(0,cancelRequested?'Cancelled':'Error occurred');
@@ -951,13 +1025,20 @@ function summarizePages(pages){
   ranges.push(start===end?`${start}`:`${start}-${end}`);return ranges.join(', ');
 }
 
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
 function updateProgress(pct,detail){progressBar.style.width=pct+'%';progressPct.textContent=Math.round(pct)+'%';if(detail){progressStatus.textContent=detail;progressDetail.textContent=detail;}}
 
 downloadBtn.addEventListener('click',()=>{
   if(!outputBlob)return;
-  const baseName = selectedFile.name.replace(/\.pdf$/i, '');
-  const pageRangeSuffix = buildPageRangeSuffix(processedOcrPages, totalPages);
-  const downloadName = `${baseName}${pageRangeSuffix}_OCR.pdf`;
+  const downloadName = getOutputFileName();
   const url=URL.createObjectURL(outputBlob);
   const a=document.createElement('a');
   a.href=url;
