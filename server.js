@@ -8,7 +8,7 @@ const { URL } = require('url');
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const PREFERRED_DATA_DIR = process.env.LIBRARY_DATA_DIR || '/data';
 let storageRoot = PREFERRED_DATA_DIR;
-let metadataWriteQueue = Promise.resolve();
+let metadataMutationQueue = Promise.resolve();
 
 function getLibraryDir() {
   return path.join(storageRoot, 'library');
@@ -55,8 +55,12 @@ function sendText(res, statusCode, text) {
   res.end(text);
 }
 
-function sanitizeFilename(name) {
-  const normalized = (name || 'document.pdf').replace(/[/\\?%*:|"<>]/g, '-').trim();
+function sanitizeFilename(name, fallback = 'document.pdf') {
+  const normalized = String(name || '')
+    .replace(/[/\\?%*:|"<>]/g, '-')
+    .trim();
+
+  if (!normalized) return fallback;
   return normalized.toLowerCase().endsWith('.pdf') ? normalized : `${normalized}.pdf`;
 }
 
@@ -96,11 +100,22 @@ async function readMetadata() {
 }
 
 async function writeMetadata(records) {
-  metadataWriteQueue = metadataWriteQueue.then(async () => {
-    await ensureStorage();
-    await fsp.writeFile(getMetaFile(), `${JSON.stringify(records, null, 2)}\n`, 'utf8');
-  });
-  await metadataWriteQueue;
+  await ensureStorage();
+  await fsp.writeFile(getMetaFile(), `${JSON.stringify(records, null, 2)}\n`, 'utf8');
+}
+
+async function mutateMetadata(mutator) {
+  const run = async () => {
+    const records = await readMetadata();
+    const result = await mutator(records);
+    if (result && result.writeRecords === false) return result;
+    await writeMetadata(records);
+    return result;
+  };
+
+  const next = metadataMutationQueue.then(run, run);
+  metadataMutationQueue = next.then(() => undefined, () => undefined);
+  return next;
 }
 
 function publicRecord(record) {
@@ -231,29 +246,33 @@ async function saveUploadedFile(req, res) {
     return;
   }
 
-  const records = await readMetadata();
-  const duplicate = records.find(record => record.name === name && record.size === file.buffer.length);
-  if (duplicate) {
-    sendJson(res, 200, { duplicate: true, record: publicRecord(duplicate) });
-    return;
-  }
+  const result = await mutateMetadata(async records => {
+    const duplicate = records.find(record => record.name === name && record.size === file.buffer.length);
+    if (duplicate) {
+      return { duplicate: true, record: duplicate, writeRecords: false };
+    }
 
-  const id = generateId();
-  const diskName = `${id}.pdf`;
-  const savedPath = path.join(getFilesDir(), diskName);
-  const record = {
-    id,
-    diskName,
-    name,
-    size: file.buffer.length,
-    pages,
-    addedAt: Date.now()
-  };
+    const id = generateId();
+    const diskName = `${id}.pdf`;
+    const savedPath = path.join(getFilesDir(), diskName);
+    const record = {
+      id,
+      diskName,
+      name,
+      size: file.buffer.length,
+      pages,
+      addedAt: Date.now()
+    };
 
-  await fsp.writeFile(savedPath, file.buffer);
-  records.unshift(record);
-  await writeMetadata(records);
-  sendJson(res, 201, { duplicate: false, record: publicRecord(record) });
+    await fsp.writeFile(savedPath, file.buffer);
+    records.unshift(record);
+    return { duplicate: false, record };
+  });
+
+  sendJson(res, result.duplicate ? 200 : 201, {
+    duplicate: result.duplicate,
+    record: publicRecord(result.record)
+  });
 }
 
 async function listFiles(res) {
@@ -293,42 +312,50 @@ async function renameFile(req, res, id) {
     return;
   }
 
-  const newName = sanitizeFilename(parsed.name || '');
+  const newName = sanitizeFilename(parsed.name || '', '');
   if (!newName) {
     sendJson(res, 400, { error: 'Name is required' });
     return;
   }
 
-  const records = await readMetadata();
-  const record = records.find(item => item.id === id);
-  if (!record) {
+  const result = await mutateMetadata(async records => {
+    const record = records.find(item => item.id === id);
+    if (!record) return { missing: true, writeRecords: false };
+    record.name = newName;
+    return { record };
+  });
+
+  if (result.missing) {
     sendJson(res, 404, { error: 'File not found' });
     return;
   }
 
-  record.name = newName;
-  await writeMetadata(records);
-  sendJson(res, 200, { record: publicRecord(record) });
+  sendJson(res, 200, { record: publicRecord(result.record) });
 }
 
 async function deleteFile(res, id) {
-  const records = await readMetadata();
-  const record = records.find(item => item.id === id);
-  if (!record) {
+  const result = await mutateMetadata(async records => {
+    const recordIndex = records.findIndex(item => item.id === id);
+    if (recordIndex === -1) return { missing: true, writeRecords: false };
+    const [record] = records.splice(recordIndex, 1);
+    await fsp.rm(path.join(getFilesDir(), record.diskName), { force: true });
+    return { record };
+  });
+
+  if (result.missing) {
     sendJson(res, 404, { error: 'File not found' });
     return;
   }
-
-  const nextRecords = records.filter(item => item.id !== id);
-  await writeMetadata(nextRecords);
-  await fsp.rm(path.join(getFilesDir(), record.diskName), { force: true });
   sendJson(res, 200, { deleted: true });
 }
 
 async function clearLibrary(res) {
-  const records = await readMetadata();
-  await Promise.all(records.map(record => fsp.rm(path.join(getFilesDir(), record.diskName), { force: true })));
-  await writeMetadata([]);
+  await mutateMetadata(async records => {
+    const currentRecords = [...records];
+    await Promise.all(currentRecords.map(record => fsp.rm(path.join(getFilesDir(), record.diskName), { force: true })));
+    records.length = 0;
+    return { cleared: true };
+  });
   sendJson(res, 200, { cleared: true });
 }
 
