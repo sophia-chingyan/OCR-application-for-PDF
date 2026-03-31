@@ -531,7 +531,7 @@
 </div>
 
 <script>
-// ── IndexedDB — stores Blob objects natively, no base64, no 5 MB cap ──
+// ── IndexedDB — stores PDF as ArrayBuffer (Blob in IDB is unreliable in Safari / some WebViews) ──
 const IDB_NAME = 'scanlens_library';
 const IDB_STORE = 'files';
 const IDB_VERSION = 1;
@@ -589,8 +589,35 @@ function idbClear() {
   }));
 }
 
+/** PDF bytes for download / preview — supports pdfBytes (new) or legacy blob field */
+function getPdfBlobFromRecord(f) {
+  if (!f) return null;
+  if (f.pdfBytes && f.pdfBytes.byteLength !== undefined) {
+    return new Blob([f.pdfBytes], { type: 'application/pdf' });
+  }
+  if (f.blob instanceof Blob) return f.blob;
+  return null;
+}
+
+/** One-time migration from blob-only records (older app versions) */
+async function migrateLegacyBlobs() {
+  let changed = false;
+  for (let i = 0; i < library.length; i++) {
+    const f = library[i];
+    if (f.blob instanceof Blob && f.pdfBytes == null) {
+      try {
+        f.pdfBytes = await f.blob.arrayBuffer();
+        delete f.blob;
+        await idbPut(f);
+        changed = true;
+      } catch (e) { /* keep legacy blob if migration fails */ }
+    }
+  }
+  if (changed) renderAll();
+}
+
 // ── State ──
-let library = [];     // array of {id, name, size, pages, addedAt, blob}
+let library = [];     // array of {id, name, size, pages, addedAt, pdfBytes} (or legacy blob)
 let currentView = 'grid';
 let deleteTarget = null;
 let searchQuery = '';
@@ -601,6 +628,7 @@ async function loadLibrary() {
   try {
     const records = await idbGetAll();
     library = records;
+    await migrateLegacyBlobs();
   } catch(e) { library = []; }
 }
 
@@ -657,13 +685,14 @@ async function addFile(file) {
 
   try {
     const pages = await getPdfPageCountFromFile(file);
+    const pdfBytes = await file.arrayBuffer();
     const entry = {
       id: uid(),
       name: file.name,
       size: file.size,
       pages: pages,
       addedAt: Date.now(),
-      blob: file             // store the File/Blob directly in IndexedDB
+      pdfBytes
     };
     await idbPut(entry);
     library.unshift(entry);
@@ -822,8 +851,9 @@ function escHtml(str) {
 // ── Actions ──
 function downloadFile(id) {
   const f = library.find(x => x.id === id);
-  if (!f || !f.blob) { showToast('File data not available', 'error'); return; }
-  const url = URL.createObjectURL(f.blob);
+  const blob = getPdfBlobFromRecord(f);
+  if (!f || !blob) { showToast('File data not available', 'error'); return; }
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = f.name;
