@@ -1,0 +1,14 @@
+{
+  "name": "scanlens",
+  "version": "1.0.0",
+  "description": "ScanLens PDF OCR Converter with persistent library",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.1.1",
+    "uuid": "^9.0.1"
+  }
+}

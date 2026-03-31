@@ -531,66 +531,18 @@
 </div>
 
 <script>
-// ── IndexedDB — stores Blob objects natively, no base64, no 5 MB cap ──
-const IDB_NAME = 'scanlens_library';
-const IDB_STORE = 'files';
-const IDB_VERSION = 1;
-
-let _db = null;
-
-function openDB() {
-  if (_db) return Promise.resolve(_db);
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(IDB_STORE)) {
-        const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
-        store.createIndex('addedAt', 'addedAt', { unique: false });
-      }
-    };
-    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-function idbGetAll() {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).getAll();
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbPut(record) {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(record);
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbDelete(id) {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).delete(id);
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbClear() {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).clear();
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  }));
+// ── API helpers — all library data lives on the server ──
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return res;
 }
 
 // ── State ──
-let library = [];     // array of {id, name, size, pages, addedAt, blob}
+let library = [];     // array of {id, name, size, pages, addedAt}  (no blob — fetched on demand)
 let currentView = 'grid';
 let deleteTarget = null;
 let searchQuery = '';
@@ -599,23 +551,22 @@ let sortMode = 'date-desc';
 // ── Persistence ──
 async function loadLibrary() {
   try {
-    const records = await idbGetAll();
-    library = records;
+    const res = await apiFetch('/api/library');
+    library = await res.json();
   } catch(e) { library = []; }
 }
 
 async function deleteFromStorage(id) {
   library = library.filter(f => f.id !== id);
-  await idbDelete(id);
+  await apiFetch(`/api/library/${id}`, { method: 'DELETE' });
 }
 
 async function clearStorage() {
   library = [];
-  await idbClear();
+  await apiFetch('/api/library', { method: 'DELETE' });
 }
 
 // ── Helpers ──
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
@@ -651,26 +602,31 @@ async function addFile(file) {
   if (file.type !== 'application/pdf') {
     showToast('Only PDF files are supported', 'error'); return;
   }
-  // Check duplicate by name + size
-  const dup = library.find(f => f.name === file.name && f.size === file.size);
-  if (dup) { showToast(`"${file.name}" is already in your library`, 'error'); return; }
 
   try {
     const pages = await getPdfPageCountFromFile(file);
-    const entry = {
-      id: uid(),
-      name: file.name,
-      size: file.size,
-      pages: pages,
-      addedAt: Date.now(),
-      blob: file             // store the File/Blob directly in IndexedDB
-    };
-    await idbPut(entry);
+
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('name', file.name);
+    formData.append('pages', String(pages || 0));
+
+    const res = await fetch('/api/library', { method: 'POST', body: formData });
+
+    if (res.status === 409) {
+      showToast(`"${file.name}" is already in your library`, 'error'); return;
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    const entry = await res.json();
     library.unshift(entry);
     renderAll();
     showToast(`Added "${file.name}"`, 'success');
   } catch(e) {
-    showToast('Failed to save file', 'error');
+    showToast('Failed to save file: ' + e.message, 'error');
   }
 }
 
@@ -822,13 +778,11 @@ function escHtml(str) {
 // ── Actions ──
 function downloadFile(id) {
   const f = library.find(x => x.id === id);
-  if (!f || !f.blob) { showToast('File data not available', 'error'); return; }
-  const url = URL.createObjectURL(f.blob);
+  if (!f) { showToast('File not found', 'error'); return; }
   const a = document.createElement('a');
-  a.href = url;
+  a.href = `/api/library/${id}`;
   a.download = f.name;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
   showToast(`Downloading "${f.name}"`, 'success');
 }
 
@@ -863,7 +817,11 @@ function commitRename(id) {
     const f = library.find(x => x.id === id);
     if (f && newName !== f.name) {
       f.name = newName.endsWith('.pdf') ? newName : newName + '.pdf';
-      idbPut(f).catch(() => {});
+      apiFetch(`/api/library/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: f.name })
+      }).catch(() => {});
       showToast('Renamed', 'success');
     }
   }
