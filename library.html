@@ -535,6 +535,8 @@
 const IDB_NAME = 'scanlens_library';
 const IDB_STORE = 'files';
 const IDB_VERSION = 1;
+const FALLBACK_CACHE = 'scanlens_library_cache_v1';
+const FALLBACK_META_KEY = 'scanlens_library_cache_meta_v1';
 
 let _db = null;
 
@@ -589,6 +591,90 @@ function idbClear() {
   }));
 }
 
+function readFallbackMeta() {
+  try {
+    const raw = localStorage.getItem(FALLBACK_META_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeFallbackMeta(records) {
+  localStorage.setItem(FALLBACK_META_KEY, JSON.stringify(records));
+}
+
+async function fallbackPut(record, blob) {
+  if (!('caches' in window)) {
+    throw new Error('Fallback storage is not available');
+  }
+  const cacheKey = `/__scanlens_library__/${record.id}.pdf`;
+  const cache = await caches.open(FALLBACK_CACHE);
+  await cache.put(cacheKey, new Response(blob, { headers: { 'Content-Type': 'application/pdf' } }));
+  const meta = readFallbackMeta();
+  meta.push({ ...record, cacheKey, storage: 'cache' });
+  writeFallbackMeta(meta);
+  return { ...record, cacheKey, storage: 'cache', blob };
+}
+
+async function loadFallbackRecords() {
+  const meta = readFallbackMeta();
+  if (meta.length === 0 || !('caches' in window)) return [];
+  const cache = await caches.open(FALLBACK_CACHE);
+  const validMeta = [];
+  const records = [];
+  for (const m of meta) {
+    if (!m || !m.id || !m.cacheKey) continue;
+    const res = await cache.match(m.cacheKey);
+    if (!res) continue;
+    const blob = await res.blob();
+    validMeta.push(m);
+    records.push({ ...m, storage: 'cache', blob });
+  }
+  if (validMeta.length !== meta.length) {
+    writeFallbackMeta(validMeta);
+  }
+  return records;
+}
+
+async function fallbackDeleteById(id) {
+  const meta = readFallbackMeta();
+  const idx = meta.findIndex(m => m.id === id);
+  if (idx < 0) return;
+  const [rec] = meta.splice(idx, 1);
+  writeFallbackMeta(meta);
+  if ('caches' in window && rec && rec.cacheKey) {
+    const cache = await caches.open(FALLBACK_CACHE);
+    await cache.delete(rec.cacheKey);
+  }
+}
+
+async function fallbackUpdateMeta(record) {
+  const meta = readFallbackMeta();
+  const idx = meta.findIndex(m => m.id === record.id);
+  if (idx < 0) return;
+  const prev = meta[idx];
+  meta[idx] = {
+    id: record.id,
+    name: record.name,
+    size: record.size,
+    pages: record.pages,
+    addedAt: record.addedAt,
+    cacheKey: prev.cacheKey,
+    storage: 'cache'
+  };
+  writeFallbackMeta(meta);
+}
+
+async function fallbackClear() {
+  writeFallbackMeta([]);
+  if ('caches' in window) {
+    await caches.delete(FALLBACK_CACHE);
+  }
+}
+
 // ── State ──
 let library = [];     // array of {id, name, size, pages, addedAt, blob}
 let currentView = 'grid';
@@ -599,19 +685,35 @@ let sortMode = 'date-desc';
 // ── Persistence ──
 async function loadLibrary() {
   try {
-    const records = await idbGetAll();
-    library = records;
-  } catch(e) { library = []; }
+    const combined = [];
+    try {
+      const records = await idbGetAll();
+      combined.push(...records.map(r => ({ ...r, storage: r.storage || 'idb' })));
+    } catch (_) {}
+    try {
+      const fallbackRecords = await loadFallbackRecords();
+      combined.push(...fallbackRecords);
+    } catch (_) {}
+    library = combined;
+  } catch(e) {
+    library = [];
+  }
 }
 
 async function deleteFromStorage(id) {
+  const target = library.find(f => f.id === id);
   library = library.filter(f => f.id !== id);
-  await idbDelete(id);
+  if (target && target.storage === 'cache') {
+    await fallbackDeleteById(id);
+  } else {
+    await idbDelete(id);
+  }
 }
 
 async function clearStorage() {
   library = [];
-  await idbClear();
+  const tasks = [idbClear(), fallbackClear()];
+  await Promise.allSettled(tasks);
 }
 
 // ── Helpers ──
@@ -657,16 +759,21 @@ async function addFile(file) {
 
   try {
     const pages = await getPdfPageCountFromFile(file);
-    const entry = {
+    const entryBase = {
       id: uid(),
       name: file.name,
       size: file.size,
       pages: pages,
-      addedAt: Date.now(),
-      blob: file             // store the File/Blob directly in IndexedDB
+      addedAt: Date.now()
     };
-    await idbPut(entry);
-    library.unshift(entry);
+    let entryStored = null;
+    try {
+      entryStored = { ...entryBase, blob: file, storage: 'idb' };
+      await idbPut(entryStored); // store the File/Blob directly in IndexedDB
+    } catch (_) {
+      entryStored = await fallbackPut(entryBase, file);
+    }
+    library.unshift(entryStored);
     renderAll();
     showToast(`Added "${file.name}"`, 'success');
   } catch(e) {
@@ -863,7 +970,11 @@ function commitRename(id) {
     const f = library.find(x => x.id === id);
     if (f && newName !== f.name) {
       f.name = newName.endsWith('.pdf') ? newName : newName + '.pdf';
-      idbPut(f).catch(() => {});
+      if (f.storage === 'cache') {
+        fallbackUpdateMeta(f).catch(() => {});
+      } else {
+        idbPut(f).catch(() => {});
+      }
       showToast('Renamed', 'success');
     }
   }
