@@ -580,6 +580,8 @@ const dropzone=document.getElementById('dropzone'),fileInput=document.getElement
 
 let selectedFile=null,outputBlob=null,totalPages=0,currentMode='all',selectedPages=new Set(),
   pageThumbnails={},thumbnailAbort=false,cancelRequested=false,cachedPdfBuffer=null;
+// Tracks the actual pages successfully included in the output PDF
+let processedOcrPages=[];
 
 function setupToggle(toggle,label){toggle.addEventListener('click',()=>{toggle.classList.toggle('active');label.textContent=toggle.classList.contains('active')?'ON':'OFF';});}
 setupToggle(enhanceToggle,enhanceLabel);
@@ -591,7 +593,7 @@ dropzone.addEventListener('drop',e=>{e.preventDefault();dropzone.classList.remov
 fileInput.addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
 
 fileRemove.addEventListener('click',()=>{
-  selectedFile=null;totalPages=0;selectedPages.clear();pageThumbnails={};thumbnailAbort=true;cachedPdfBuffer=null;
+  selectedFile=null;totalPages=0;selectedPages.clear();pageThumbnails={};thumbnailAbort=true;cachedPdfBuffer=null;processedOcrPages=[];
   fileInfo.classList.remove('visible');pageRangeSection.classList.remove('visible');
   startBtn.disabled=true;startBtn.textContent='Select a PDF to begin';fileInput.value='';resultSection.classList.remove('visible');
 });
@@ -770,8 +772,41 @@ cancelBtn.addEventListener('click',()=>{cancelRequested=true;cancelBtn.classList
 
 startBtn.addEventListener('click',async()=>{if(!selectedFile||selectedPages.size===0)return;await runLocalOCR();});
 
+/**
+ * Build a compact page-range suffix for the output filename.
+ * Returns '' when all pages of the document were processed (no suffix needed).
+ * Otherwise returns something like '_p2-4' or '_p1,3,5' or '_p1-2,5-7'.
+ *
+ * Examples (totalPages = 10):
+ *   [1..10]        → ''
+ *   [2,3,4]        → '_p2-4'
+ *   [1,3,5]        → '_p1,3,5'
+ *   [1,2,5,6,7]    → '_p1-2,5-7'
+ *   [1]            → '_p1'
+ */
+function buildPageRangeSuffix(pages, total) {
+  if (!pages || pages.length === 0) return '';
+  const sorted = [...pages].sort((a, b) => a - b);
+  // All pages: no suffix
+  if (sorted.length === total && sorted[0] === 1 && sorted[sorted.length - 1] === total) return '';
+  // Compress into compact ranges
+  const ranges = [];
+  let start = sorted[0], end = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === end + 1) {
+      end = sorted[i];
+    } else {
+      ranges.push(start === end ? `${start}` : `${start}-${end}`);
+      start = end = sorted[i];
+    }
+  }
+  ranges.push(start === end ? `${start}` : `${start}-${end}`);
+  return '_p' + ranges.join(',');
+}
+
 async function runLocalOCR(){
-  cancelRequested=false;startBtn.disabled=true;startBtn.textContent='Processing...';
+  cancelRequested=false;processedOcrPages=[];
+  startBtn.disabled=true;startBtn.textContent='Processing...';
   cancelBtn.classList.add('visible');progressSection.classList.add('visible');resultSection.classList.remove('visible');
   logArea.innerHTML='';pagePreviews.innerHTML='';progressEta.textContent='';progressBar.className='progress-bar-fill';
 
@@ -854,6 +889,10 @@ async function runLocalOCR(){
 
     updateProgress(97,'Generating output PDF...');const mergedBytes=await mergedPdf.save();
     outputBlob=new Blob([mergedBytes],{type:'application/pdf'});
+
+    // Record exactly which pages ended up in the output (for filename suffix)
+    processedOcrPages = pagePdfBytes.map(p => p.pageNum);
+
     await worker.terminate();worker=null;
 
     const totalTime=((Date.now()-startTime)/1000).toFixed(1);
@@ -863,8 +902,7 @@ async function runLocalOCR(){
     const langBadges=[...detectedLangs].map(l=>`<span class="lang-badge">${getLangLabel(l)}</span>`).join(' ');
     const ocrResults=pageTexts.filter(r=>r.confidence>0);
     const avgConf=ocrResults.length>0?(ocrResults.reduce((s,p)=>s+p.confidence,0)/ocrResults.length).toFixed(1):'—';
-    const processedPages=pagePdfBytes.map(p=>p.pageNum);
-    const pageDesc=processedPages.length===totalPages?`All ${processedPages.length} pages OCR'd`:`${processedPages.length} of ${totalPages} pages OCR'd — [${summarizePages(processedPages)}]`;
+    const pageDesc=processedOcrPages.length===totalPages?`All ${processedOcrPages.length} pages OCR'd`:`${processedOcrPages.length} of ${totalPages} pages OCR'd — [${summarizePages(processedOcrPages)}]`;
     const cancelNote=cancelRequested?'<br><span style="color:var(--warning);">Processing was cancelled early</span>':'';
 
     resultSummary.innerHTML=`${pageDesc} • ${totalTime}s • Avg. confidence ${avgConf}% • ${langBadges}${cancelNote}
@@ -889,8 +927,14 @@ function summarizePages(pages){
 function updateProgress(pct,detail){progressBar.style.width=pct+'%';progressPct.textContent=Math.round(pct)+'%';if(detail){progressStatus.textContent=detail;progressDetail.textContent=detail;}}
 
 downloadBtn.addEventListener('click',()=>{
-  if(!outputBlob)return;const url=URL.createObjectURL(outputBlob);const a=document.createElement('a');
-  a.href=url;a.download=selectedFile.name.replace(/\.pdf$/i,'')+'_OCR.pdf';
+  if(!outputBlob)return;
+  const baseName = selectedFile.name.replace(/\.pdf$/i, '');
+  const pageRangeSuffix = buildPageRangeSuffix(processedOcrPages, totalPages);
+  const downloadName = `${baseName}${pageRangeSuffix}_OCR.pdf`;
+  const url=URL.createObjectURL(outputBlob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=downloadName;
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
 });
 </script>
