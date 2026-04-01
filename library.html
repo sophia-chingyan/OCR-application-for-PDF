@@ -531,7 +531,7 @@
 </div>
 
 <script>
-// ── IndexedDB — stores Blob objects natively, no base64, no 5 MB cap ──
+// ── IndexedDB ──
 const IDB_NAME = 'scanlens_library';
 const IDB_STORE = 'files';
 const IDB_VERSION = 1;
@@ -540,10 +540,9 @@ const FALLBACK_META_KEY = 'scanlens_library_cache_meta_v1';
 
 let _db = null;
 
+// FIX: Always compare ids as strings to avoid type-mismatch silent failures
 function idsMatch(left, right) {
-  return left !== null && left !== undefined &&
-         right !== null && right !== undefined &&
-         String(left) === String(right);
+  return left != null && right != null && String(left) === String(right);
 }
 
 function openDB() {
@@ -579,10 +578,11 @@ function idbPut(record) {
   }));
 }
 
-function idbDelete(id) {
+// FIX: Accept the raw key value directly; caller is responsible for passing the correct key
+function idbDeleteByKey(key) {
   return openDB().then(db => new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).delete(id);
+    tx.objectStore(IDB_STORE).delete(key);
     tx.oncomplete = resolve;
     tx.onerror = e => reject(e.target.error);
   }));
@@ -603,9 +603,7 @@ function readFallbackMeta() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (_) {
-    return [];
-  }
+  } catch (_) { return []; }
 }
 
 function writeFallbackMeta(records) {
@@ -613,9 +611,7 @@ function writeFallbackMeta(records) {
 }
 
 async function fallbackPut(record, blob) {
-  if (!('caches' in window)) {
-    throw new Error('Fallback storage is not available');
-  }
+  if (!('caches' in window)) throw new Error('Fallback storage is not available');
   const cacheKey = `/__scanlens_library__/${record.id}.pdf`;
   const cache = await caches.open(FALLBACK_CACHE);
   await cache.put(cacheKey, new Response(blob, { headers: { 'Content-Type': 'application/pdf' } }));
@@ -639,9 +635,7 @@ async function loadFallbackRecords() {
     validMeta.push(m);
     records.push({ ...m, storage: 'cache', blob });
   }
-  if (validMeta.length !== meta.length) {
-    writeFallbackMeta(validMeta);
-  }
+  if (validMeta.length !== meta.length) writeFallbackMeta(validMeta);
   return records;
 }
 
@@ -662,29 +656,21 @@ async function fallbackUpdateMeta(record) {
   const idx = meta.findIndex(m => idsMatch(m.id, record.id));
   if (idx < 0) return;
   const prev = meta[idx];
-  meta[idx] = {
-    id: record.id,
-    name: record.name,
-    size: record.size,
-    pages: record.pages,
-    addedAt: record.addedAt,
-    cacheKey: prev.cacheKey,
-    storage: 'cache'
-  };
+  meta[idx] = { id: record.id, name: record.name, size: record.size, pages: record.pages, addedAt: record.addedAt, cacheKey: prev.cacheKey, storage: 'cache' };
   writeFallbackMeta(meta);
 }
 
 async function fallbackClear() {
   writeFallbackMeta([]);
-  if ('caches' in window) {
-    await caches.delete(FALLBACK_CACHE);
-  }
+  if ('caches' in window) await caches.delete(FALLBACK_CACHE);
 }
 
 // ── State ──
-let library = [];     // array of {id, name, size, pages, addedAt, blob}
+let library = [];
 let currentView = 'grid';
-let deleteTarget = null;
+// FIX: store the full file record for deletion, not just the id,
+// so we still have all info after it's been removed from the array
+let deleteTargetRecord = null;
 let searchQuery = '';
 let sortMode = 'date-desc';
 
@@ -706,23 +692,34 @@ async function loadLibrary() {
   }
 }
 
+// FIX: Rewritten deleteFromStorage — capture target first, then remove from array,
+// then delete from the appropriate backing store using the original key.
 async function deleteFromStorage(id) {
   const target = library.find(f => idsMatch(f.id, id));
   if (!target) return false;
+
+  // Remove from in-memory array
   library = library.filter(f => !idsMatch(f.id, id));
-  const storageId = target.id;
-  if (target && target.storage === 'cache') {
-    await fallbackDeleteById(storageId);
-  } else {
-    await idbDelete(storageId);
+
+  // Delete from backing store using the original id value (preserving its type)
+  try {
+    if (target.storage === 'cache') {
+      await fallbackDeleteById(target.id);
+    } else {
+      await idbDeleteByKey(target.id);
+    }
+  } catch (e) {
+    console.error('Storage delete error:', e);
+    // Re-add to library if storage deletion failed
+    library.push(target);
+    return false;
   }
   return true;
 }
 
 async function clearStorage() {
   library = [];
-  const tasks = [idbClear(), fallbackClear()];
-  await Promise.allSettled(tasks);
+  await Promise.allSettled([idbClear(), fallbackClear()]);
 }
 
 // ── Helpers ──
@@ -739,15 +736,9 @@ function formatDate(ts) {
   return d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
 }
 
-function totalStorageSize() {
-  return library.reduce((s, f) => s + (f.size || 0), 0);
-}
+function totalStorageSize() { return library.reduce((s, f) => s + (f.size || 0), 0); }
+function totalPages() { return library.reduce((s, f) => s + (f.pages || 0), 0); }
 
-function totalPages() {
-  return library.reduce((s, f) => s + (f.pages || 0), 0);
-}
-
-// ── Extract PDF page count from a File/Blob ──
 async function getPdfPageCountFromFile(fileOrBlob) {
   if (typeof pdfjsLib === 'undefined') return null;
   try {
@@ -757,28 +748,17 @@ async function getPdfPageCountFromFile(fileOrBlob) {
   } catch(e) { return null; }
 }
 
-// ── Add file ──
 async function addFile(file) {
-  if (file.type !== 'application/pdf') {
-    showToast('Only PDF files are supported', 'error'); return;
-  }
-  // Check duplicate by name + size
+  if (file.type !== 'application/pdf') { showToast('Only PDF files are supported', 'error'); return; }
   const dup = library.find(f => f.name === file.name && f.size === file.size);
   if (dup) { showToast(`"${file.name}" is already in your library`, 'error'); return; }
-
   try {
     const pages = await getPdfPageCountFromFile(file);
-    const entryBase = {
-      id: uid(),
-      name: file.name,
-      size: file.size,
-      pages: pages,
-      addedAt: Date.now()
-    };
-    let entryStored = null;
+    const entryBase = { id: uid(), name: file.name, size: file.size, pages, addedAt: Date.now() };
+    let entryStored;
     try {
       entryStored = { ...entryBase, blob: file, storage: 'idb' };
-      await idbPut(entryStored); // store the File/Blob directly in IndexedDB
+      await idbPut(entryStored);
     } catch (_) {
       entryStored = await fallbackPut(entryBase, file);
     }
@@ -798,11 +778,11 @@ function getDisplayList() {
     list = list.filter(f => f.name.toLowerCase().includes(q));
   }
   switch(sortMode) {
-    case 'date-asc':   list.sort((a,b) => a.addedAt - b.addedAt); break;
-    case 'date-desc':  list.sort((a,b) => b.addedAt - a.addedAt); break;
-    case 'name-asc':   list.sort((a,b) => a.name.localeCompare(b.name)); break;
-    case 'name-desc':  list.sort((a,b) => b.name.localeCompare(a.name)); break;
-    case 'size-desc':  list.sort((a,b) => b.size - a.size); break;
+    case 'date-asc':  list.sort((a,b) => a.addedAt - b.addedAt); break;
+    case 'date-desc': list.sort((a,b) => b.addedAt - a.addedAt); break;
+    case 'name-asc':  list.sort((a,b) => a.name.localeCompare(b.name)); break;
+    case 'name-desc': list.sort((a,b) => b.name.localeCompare(a.name)); break;
+    case 'size-desc': list.sort((a,b) => b.size - a.size); break;
   }
   return list;
 }
@@ -842,14 +822,7 @@ function renderAll() {
   empty.classList.remove('visible');
   grid.className = 'file-grid' + (currentView === 'list' ? ' list-view' : '');
   grid.innerHTML = '';
-
-  list.forEach(f => {
-    if (currentView === 'grid') {
-      grid.appendChild(makeCard(f));
-    } else {
-      grid.appendChild(makeRow(f));
-    }
-  });
+  list.forEach(f => grid.appendChild(currentView === 'grid' ? makeCard(f) : makeRow(f)));
 }
 
 function makeCard(f) {
@@ -884,8 +857,13 @@ function makeCard(f) {
   `;
   el.querySelector('[data-action="download"]').addEventListener('click', () => downloadFile(f.id));
   el.querySelector('[data-action="rename"]').addEventListener('click', () => startRename(f.id));
-  el.querySelector('[data-action="delete"]').addEventListener('click', () => confirmDelete(f.id));
-  // Rename input keydown
+  // FIX: Use mousedown instead of click for delete to fire before blur on the rename input,
+  // preventing the rename blur handler from interfering with the delete action.
+  el.querySelector('[data-action="delete"]').addEventListener('mousedown', (e) => {
+    e.preventDefault(); // prevent focus-change / blur on any active rename input
+    confirmDelete(f.id, f.name);
+  });
+
   const input = el.querySelector(`#rename-${f.id}`);
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') commitRename(f.id);
@@ -927,7 +905,12 @@ function makeRow(f) {
   `;
   el.querySelector('[data-action="download"]').addEventListener('click', () => downloadFile(f.id));
   el.querySelector('[data-action="rename"]').addEventListener('click', () => startRename(f.id));
-  el.querySelector('[data-action="delete"]').addEventListener('click', () => confirmDelete(f.id));
+  // FIX: Same mousedown fix for list-view rows
+  el.querySelector('[data-action="delete"]').addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    confirmDelete(f.id, f.name);
+  });
+
   const input = el.querySelector(`#rename-${f.id}`);
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') commitRename(f.id);
@@ -947,23 +930,22 @@ function downloadFile(id) {
   if (!f || !f.blob) { showToast('File data not available', 'error'); return; }
   const url = URL.createObjectURL(f.blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = f.name;
+  a.href = url; a.download = f.name;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast(`Downloading "${f.name}"`, 'success');
 }
 
-function confirmDelete(id) {
-  deleteTarget = id;
-  const f = library.find(x => idsMatch(x.id, id));
+// FIX: Accept name as a parameter so we capture it at call time (before any array mutation)
+function confirmDelete(id, name) {
+  // Store the full record so we still have it after the library array is mutated
+  deleteTargetRecord = library.find(x => idsMatch(x.id, id)) || { id, name: name || 'this file' };
   document.getElementById('deleteModalMsg').textContent =
-    `This will permanently remove "${f ? f.name : 'the file'}" from your library.`;
+    `This will permanently remove "${deleteTargetRecord.name}" from your library.`;
   document.getElementById('deleteModal').classList.add('visible');
 }
 
 function startRename(id) {
-  // Cancel any other active rename
   document.querySelectorAll('.rename-input.visible').forEach(inp => {
     cancelRename(inp.id.replace('rename-', ''));
   });
@@ -981,7 +963,7 @@ function commitRename(id) {
   const nameEl = document.getElementById('name-' + id);
   if (!inputEl || !inputEl.classList.contains('visible')) return;
   const newName = inputEl.value.trim();
-  if (newName && newName !== '') {
+  if (newName) {
     const f = library.find(x => idsMatch(x.id, id));
     if (f && newName !== f.name) {
       f.name = newName.endsWith('.pdf') ? newName : newName + '.pdf';
@@ -994,7 +976,11 @@ function commitRename(id) {
     }
   }
   inputEl.classList.remove('visible');
-  if (nameEl) { nameEl.classList.remove('editing'); nameEl.textContent = library.find(x => idsMatch(x.id, id))?.name || ''; }
+  if (nameEl) {
+    nameEl.classList.remove('editing');
+    const f = library.find(x => idsMatch(x.id, id));
+    nameEl.textContent = f ? f.name : nameEl.textContent;
+  }
 }
 
 function cancelRename(id) {
@@ -1019,21 +1005,25 @@ function showToast(msg, type = 'success') {
 // ── Modal wiring ──
 document.getElementById('deleteCancelBtn').addEventListener('click', () => {
   document.getElementById('deleteModal').classList.remove('visible');
-  deleteTarget = null;
+  deleteTargetRecord = null;
 });
+
+// FIX: Use the stored record (deleteTargetRecord) instead of re-searching the array,
+// which would fail after deleteFromStorage already removed the entry.
 document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
-  if (deleteTarget !== null && deleteTarget !== undefined) {
-    const f = library.find(x => idsMatch(x.id, deleteTarget));
-    const deleted = await deleteFromStorage(deleteTarget);
-    renderAll();
-    if (deleted) {
-      showToast(`Deleted "${f ? f.name : 'file'}"`, 'success');
-    } else {
-      showToast('File could not be deleted', 'error');
-    }
-    deleteTarget = null;
-  }
   document.getElementById('deleteModal').classList.remove('visible');
+  if (!deleteTargetRecord) return;
+
+  const recordToDelete = deleteTargetRecord;
+  deleteTargetRecord = null;
+
+  const deleted = await deleteFromStorage(recordToDelete.id);
+  if (deleted) {
+    showToast(`Deleted "${recordToDelete.name}"`, 'success');
+  } else {
+    showToast('File could not be deleted', 'error');
+  }
+  renderAll();
 });
 
 document.getElementById('clearCancelBtn').addEventListener('click', () =>
@@ -1096,17 +1086,13 @@ document.getElementById('listViewBtn').addEventListener('click', () => {
 });
 
 // ── Bootstrap ──
-// Load pdf.js lazily for page count detection
 const pdfScript = document.createElement('script');
 pdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
 pdfScript.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; };
 document.head.appendChild(pdfScript);
 
-// Reload from IndexedDB whenever the tab becomes visible (handles cross-tab saves)
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    loadLibrary().then(renderAll);
-  }
+  if (document.visibilityState === 'visible') loadLibrary().then(renderAll);
 });
 
 loadLibrary().then(renderAll);
