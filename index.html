@@ -25,8 +25,10 @@
     --accent-soft: rgba(108, 92, 231, 0.12);
     --accent-soft-2: rgba(108, 92, 231, 0.22);
     --success: #00b894;
+    --success-soft: rgba(0, 184, 148, 0.12);
     --warning: #fdcb6e;
     --danger: #e17055;
+    --danger-soft: rgba(225, 112, 85, 0.12);
     --radius: 12px;
   }
 
@@ -54,25 +56,53 @@
     100% { transform: translate(-3%, 2%) rotate(1deg); }
   }
 
-  .topnav {
-    position: sticky; top: 0; z-index: 100;
-    background: rgba(10,10,15,0.85); backdrop-filter: blur(12px);
+  /* ─── Site Header ─── */
+  .site-header {
+    background: var(--surface);
     border-bottom: 1px solid var(--border);
-    display: flex; justify-content: center;
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
   }
-  .topnav-inner {
-    max-width: 860px; width: 100%; padding: 0 24px;
-    display: flex; align-items: center; gap: 4px;
+  .site-header .brand {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
   }
-  .nav-tab {
-    padding: 14px 18px; font-family: 'DM Sans', sans-serif; font-size: 13px;
-    font-weight: 600; color: var(--text-dim); background: none; border: none;
-    border-bottom: 2px solid transparent; cursor: pointer;
-    text-decoration: none; display: inline-block; transition: all 0.2s;
-    margin-bottom: -1px;
+  .header-nav { display: flex; align-items: center; gap: 4px; }
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s, background 0.15s;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: 'DM Sans', sans-serif;
   }
-  .nav-tab:hover { color: var(--text); }
-  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .nav-link:hover { color: var(--text); background: var(--surface-2); }
+  .nav-link.active { color: var(--text); background: var(--surface-3); }
+  .nav-link svg { flex-shrink: 0; }
+
+  /* ─── Page views ─── */
+  .page-view { display: none; }
+  .page-view.active { display: block; }
 
   .app {
     max-width: 860px;
@@ -81,24 +111,6 @@
   }
 
   .header { text-align: center; margin-bottom: 48px; }
-
-  .logo {
-    font-family: 'Space Mono', monospace;
-    font-size: 13px;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
-
-  .logo::before, .logo::after {
-    content: ''; width: 24px; height: 1px;
-    background: var(--accent); opacity: 0.4;
-  }
 
   .header h1 {
     font-size: 38px; font-weight: 700; letter-spacing: -1px;
@@ -386,8 +398,6 @@
   .result-card h3 { font-size: 18px; margin-bottom: 6px; }
   .result-card p { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; }
 
-  .result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-
   .download-btn {
     display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px;
     border: none; border-radius: var(--radius);
@@ -397,15 +407,203 @@
   }
   .download-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0, 184, 148, 0.3); }
 
-  .save-library-btn {
-    display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px;
-    border: none; border-radius: var(--radius);
-    background: linear-gradient(135deg, var(--accent), #5a4bd1);
-    color: white; font-family: 'DM Sans', sans-serif; font-size: 15px;
-    font-weight: 600; cursor: pointer; transition: all 0.3s;
+  /* ─── Library Styles ─── */
+  .library-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
   }
-  .save-library-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(108, 92, 231, 0.3); }
-  .save-library-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .library-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .library-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .library-header .count {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+  .library-actions { display: flex; align-items: center; gap: 10px; }
+
+  .lib-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .lib-btn-primary { background: var(--accent); color: #fff; }
+  .lib-btn-primary:hover { background: var(--accent-glow); }
+  .lib-btn-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(225,112,85,0.3); }
+  .lib-btn-danger:hover { background: rgba(225,112,85,0.2); }
+  .lib-btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+  .lib-btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+  .lib-btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+  }
+  .empty-state .empty-icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.35; }
+  .empty-state h2 { font-size: 20px; color: var(--text-dim); margin-bottom: 8px; }
+  .empty-state p { color: var(--text-dim); font-size: 13px; margin-bottom: 1.5rem; }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .toolbar-left { display: flex; align-items: center; gap: 12px; }
+
+  .select-all-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  .select-all-wrap input[type="checkbox"] {
+    width: 15px; height: 15px; cursor: pointer;
+    accent-color: var(--accent);
+  }
+
+  .selection-info {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 3px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+  }
+  .selection-info.has-selection {
+    color: var(--accent);
+    border-color: var(--accent-soft-2);
+    background: var(--accent-soft);
+  }
+
+  .lib-table { width: 100%; border-collapse: collapse; }
+  .lib-table thead { background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  .lib-table th {
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    text-align: left;
+    font-family: 'Space Mono', monospace;
+  }
+  .lib-table th:first-child { width: 40px; padding-left: 20px; }
+  .lib-table th:last-child { text-align: right; padding-right: 20px; }
+
+  .lib-row {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s, opacity 0.3s, transform 0.3s;
+  }
+  .lib-row:last-child { border-bottom: none; }
+  .lib-row:hover { background: var(--surface-2); }
+  .lib-row.selected { background: var(--accent-soft); }
+  .lib-row.removing { opacity: 0; transform: translateX(12px); }
+
+  .lib-table td { padding: 12px 16px; vertical-align: middle; }
+  .lib-table td:first-child { padding-left: 20px; }
+  .lib-table td:last-child { text-align: right; padding-right: 20px; }
+
+  td input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+
+  .book-meta { display: flex; align-items: center; gap: 12px; }
+  .book-thumb-placeholder {
+    width: 38px; height: 52px; border-radius: 6px;
+    background: linear-gradient(135deg, #e17055, #d63031);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700;
+    color: white; flex-shrink: 0; border: 1px solid var(--border);
+  }
+  .book-name { font-weight: 600; font-size: 13px; color: var(--text); line-height: 1.3; word-break: break-word; }
+  .book-filename { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    font-family: 'Space Mono', monospace;
+  }
+  .badge-pdf { background: var(--danger-soft); color: var(--danger); }
+
+  .file-size-lib { font-size: 13px; color: var(--text-dim); font-family: 'Space Mono', monospace; }
+
+  .date-cell { font-size: 12px; color: var(--text-dim); }
+
+  .row-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+
+  /* ─── Toast ─── */
+  #toast-container {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+  }
+  .toast {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; border-radius: 10px;
+    font-size: 13px; font-weight: 500;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    animation: slideUp 0.25s ease;
+    max-width: 320px;
+  }
+  .toast-success { background: var(--surface-3); color: var(--success); border: 1px solid rgba(0,184,148,0.3); }
+  .toast-error { background: var(--surface-3); color: var(--danger); border: 1px solid rgba(225,112,85,0.3); }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ─── Modal ─── */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 500;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    padding: 2rem; width: 100%; max-width: 400px;
+    animation: popIn 0.2s ease;
+  }
+  @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+  .modal h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+  .modal p { font-size: 13px; color: var(--text-dim); margin-bottom: 1.5rem; line-height: 1.5; }
+  .modal p strong { color: var(--text); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
   @media (max-width: 600px) {
     .app { padding: 24px 16px 60px; }
@@ -416,21 +614,38 @@
     .range-input-group { width: 100%; }
     .btn-row { flex-direction: column; }
     select { max-width: 100%; }
+    .site-header { padding: 0 1rem; }
+    .library-wrap { padding: 1.5rem 1rem 3rem; }
+    .library-header { flex-direction: column; align-items: flex-start; }
+    .lib-table th:nth-child(4), .lib-table td:nth-child(4) { display: none; }
+    .lib-table th:nth-child(5), .lib-table td:nth-child(5) { display: none; }
   }
 </style>
 </head>
 <body>
 
-<nav class="topnav">
-  <div class="topnav-inner">
-    <a class="nav-tab active" href="index.html">Convert</a>
-    <a class="nav-tab" href="library.html">Library</a>
-  </div>
-</nav>
+<!-- ─── Site Header ─── -->
+<header class="site-header">
+  <a class="brand" onclick="showView('converter')">ScanLens</a>
+  <nav class="header-nav">
+    <button class="nav-link active" id="nav-converter" onclick="showView('converter')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Convert
+    </button>
+    <button class="nav-link" id="nav-library" onclick="showView('library')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      Library
+      <span id="nav-library-badge" style="display:none; background:var(--accent); color:white; font-size:10px; padding:1px 6px; border-radius:10px; font-family:'Space Mono',monospace;"></span>
+    </button>
+  </nav>
+</header>
 
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- CONVERTER VIEW -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="page-view active" id="view-converter">
 <div class="app">
   <header class="header">
-    <div class="logo">ScanLens</div>
     <h1>Scanned PDF to Readable PDF</h1>
     <p>Upload a camera-scanned PDF. OCR extracts a searchable text layer while preserving images.<br>
        Supports <strong>English</strong>, <strong>Traditional &amp; Simplified Chinese</strong> (horizontal + vertical),
@@ -576,23 +791,363 @@
       </div>
       <h3>OCR Complete!</h3>
       <p id="resultSummary"></p>
-      <div class="result-actions">
-        <button class="download-btn" id="downloadBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download Readable PDF
-        </button>
-        <button class="save-library-btn" id="saveLibraryBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          Save to Library
-        </button>
-      </div>
+      <button class="download-btn" id="downloadBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Readable PDF
+      </button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- LIBRARY VIEW -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="page-view" id="view-library">
+<div class="library-wrap">
+  <div class="library-header">
+    <h1>Library <span class="count" id="lib-count"></span></h1>
+    <div class="library-actions">
+      <button class="lib-btn lib-btn-primary" onclick="showView('converter')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Convert New
+      </button>
+    </div>
+  </div>
+
+  <div id="lib-content">
+    <!-- Populated dynamically -->
+  </div>
+</div>
+</div>
+
+<!-- ─── Modal ─── -->
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <h3 id="modal-title">Delete file?</h3>
+    <p id="modal-body">This action cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="lib-btn lib-btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="lib-btn lib-btn-danger" id="modal-confirm-btn" onclick="modalConfirm()">Delete</button>
     </div>
   </div>
 </div>
 
+<!-- ─── Toast ─── -->
+<div id="toast-container"></div>
+
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const { PDFDocument } = PDFLib;
+
+// ═══════════════════════════════════════════════════════════════════
+// IndexedDB Library Store
+// ═══════════════════════════════════════════════════════════════════
+
+const DB_NAME = 'ScanLensLibrary';
+const DB_VERSION = 1;
+const STORE_NAME = 'files';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function libSave(record) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(record);
+    tx.oncomplete = () => { resolve(); updateLibraryBadge(); };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function libGetAll() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).getAll();
+    req.onsuccess = () => {
+      const items = req.result || [];
+      items.sort((a, b) => b.timestamp - a.timestamp);
+      resolve(items);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function libDelete(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(id);
+    tx.oncomplete = () => { resolve(); updateLibraryBadge(); };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function libClear() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).clear();
+    tx.oncomplete = () => { resolve(); updateLibraryBadge(); };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function libCount() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function updateLibraryBadge() {
+  const count = await libCount();
+  const badge = document.getElementById('nav-library-badge');
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// View Switching
+// ═══════════════════════════════════════════════════════════════════
+
+function showView(view) {
+  document.getElementById('view-converter').classList.toggle('active', view === 'converter');
+  document.getElementById('view-library').classList.toggle('active', view === 'library');
+  document.getElementById('nav-converter').classList.toggle('active', view === 'converter');
+  document.getElementById('nav-library').classList.toggle('active', view === 'library');
+  if (view === 'library') renderLibrary();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Library Rendering
+// ═══════════════════════════════════════════════════════════════════
+
+async function renderLibrary() {
+  const container = document.getElementById('lib-content');
+  const countEl = document.getElementById('lib-count');
+  const items = await libGetAll();
+
+  if (items.length === 0) {
+    countEl.textContent = '';
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📄</div>
+        <h2>No files yet</h2>
+        <p>Convert a scanned PDF to get started. Your OCR results will appear here.</p>
+        <button class="lib-btn lib-btn-primary" onclick="showView('converter')">Convert a file</button>
+      </div>`;
+    return;
+  }
+
+  countEl.textContent = `${items.length} file${items.length !== 1 ? 's' : ''}`;
+
+  let html = `
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <div class="toolbar-left">
+          <label class="select-all-wrap">
+            <input type="checkbox" id="lib-select-all" onchange="libToggleSelectAll()">
+            <span>Select all</span>
+          </label>
+          <span class="selection-info" id="lib-selection-info">0 selected</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="lib-btn lib-btn-danger lib-btn-sm" id="lib-btn-delete-selected" style="display:none" onclick="libDeleteSelected()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+            Delete Selected
+          </button>
+          <button class="lib-btn lib-btn-ghost lib-btn-sm" onclick="libConfirmDeleteAll()">Delete All</button>
+        </div>
+      </div>
+      <table class="lib-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>File</th>
+            <th>Format</th>
+            <th>Size</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="lib-tbody">`;
+
+  for (const item of items) {
+    const date = new Date(item.timestamp);
+    const dateStr = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    html += `
+          <tr class="lib-row" data-id="${item.id}">
+            <td><input type="checkbox" class="lib-row-checkbox" value="${item.id}" onchange="libUpdateSelectionUI()"></td>
+            <td>
+              <div class="book-meta">
+                <div class="book-thumb-placeholder">PDF</div>
+                <div>
+                  <div class="book-name">${escapeHtml(item.originalName)}</div>
+                  <div class="book-filename">${escapeHtml(item.ocrName)}</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="badge badge-pdf">PDF</span></td>
+            <td><span class="file-size-lib">${item.sizeLabel}</span></td>
+            <td><span class="date-cell">${dateStr}<br>${timeStr}</span></td>
+            <td>
+              <div class="row-actions">
+                <button class="lib-btn lib-btn-ghost lib-btn-sm" onclick="libDownloadOne('${item.id}')" title="Download">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download
+                </button>
+                <button class="lib-btn lib-btn-danger lib-btn-sm" style="padding:6px 8px;" onclick="libConfirmDeleteOne('${item.id}','${escapeHtml(item.originalName)}')" title="Delete">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>`;
+  }
+
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ─── Library selection ───
+
+function libGetChecked() { return [...document.querySelectorAll('.lib-row-checkbox:checked')]; }
+
+function libUpdateSelectionUI() {
+  const checked = libGetChecked();
+  const count = checked.length;
+  const info = document.getElementById('lib-selection-info');
+  const btnDel = document.getElementById('lib-btn-delete-selected');
+  const selectAll = document.getElementById('lib-select-all');
+  if (!info) return;
+  info.textContent = count + ' selected';
+  info.classList.toggle('has-selection', count > 0);
+  if (btnDel) btnDel.style.display = count > 0 ? 'inline-flex' : 'none';
+  const allBoxes = document.querySelectorAll('.lib-row-checkbox');
+  if (selectAll) {
+    selectAll.indeterminate = count > 0 && count < allBoxes.length;
+    selectAll.checked = count > 0 && count === allBoxes.length;
+  }
+  document.querySelectorAll('.lib-row').forEach(row => {
+    const cb = row.querySelector('.lib-row-checkbox');
+    row.classList.toggle('selected', cb && cb.checked);
+  });
+}
+
+function libToggleSelectAll() {
+  const selectAll = document.getElementById('lib-select-all');
+  document.querySelectorAll('.lib-row-checkbox').forEach(cb => { cb.checked = selectAll.checked; });
+  libUpdateSelectionUI();
+}
+
+// ─── Library actions ───
+
+async function libDownloadOne(id) {
+  const db = await openDB();
+  const tx = db.transaction(STORE_NAME, 'readonly');
+  const req = tx.objectStore(STORE_NAME).get(id);
+  req.onsuccess = () => {
+    const item = req.result;
+    if (!item) return;
+    const url = URL.createObjectURL(item.blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = item.ocrName;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+}
+
+function libConfirmDeleteOne(id, name) {
+  openModalDialog('Delete this file?', `<strong>${name}</strong> will be permanently removed.`, async () => {
+    const row = document.querySelector(`.lib-row[data-id="${id}"]`);
+    if (row) { row.classList.add('removing'); }
+    await libDelete(id);
+    setTimeout(() => renderLibrary(), 300);
+    showToast('File deleted');
+  });
+}
+
+function libDeleteSelected() {
+  const checked = libGetChecked();
+  if (!checked.length) return;
+  const ids = checked.map(cb => cb.value);
+  const noun = ids.length === 1 ? '1 file' : ids.length + ' files';
+  openModalDialog('Delete selected?', `<strong>${noun}</strong> will be permanently removed.`, async () => {
+    for (const id of ids) {
+      const row = document.querySelector(`.lib-row[data-id="${id}"]`);
+      if (row) row.classList.add('removing');
+      await libDelete(id);
+    }
+    setTimeout(() => renderLibrary(), 300);
+    showToast(`Deleted ${ids.length} file${ids.length !== 1 ? 's' : ''}`);
+  });
+}
+
+function libConfirmDeleteAll() {
+  const rows = document.querySelectorAll('.lib-row');
+  if (!rows.length) return;
+  openModalDialog('Delete all files?',
+    `All <strong>${rows.length}</strong> file${rows.length !== 1 ? 's' : ''} in your library will be permanently removed.`,
+    async () => {
+      await libClear();
+      renderLibrary();
+      showToast('All files deleted');
+    });
+}
+
+// ─── Modal & Toast ───
+
+let modalAction = null;
+function openModalDialog(title, body, action) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = body;
+  modalAction = action;
+  document.getElementById('modal-backdrop').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-backdrop').classList.remove('open'); modalAction = null; }
+function modalConfirm() { closeModal(); if (modalAction) modalAction(); }
+document.getElementById('modal-backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = (type === 'success' ? '✓ ' : '✗ ') + message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Original Converter Logic
+// ═══════════════════════════════════════════════════════════════════
 
 const LANG_LABELS = {
   'eng':'English','chi_tra':'Traditional Chinese (Horizontal)','chi_tra_vert':'Traditional Chinese (Vertical)',
@@ -604,7 +1159,6 @@ const LANG_LABELS = {
 };
 function getLangLabel(lang) { return LANG_LABELS[lang] || lang; }
 
-const saveLibraryBtn=document.getElementById('saveLibraryBtn');
 const dropzone=document.getElementById('dropzone'),fileInput=document.getElementById('fileInput'),
   fileInfo=document.getElementById('fileInfo'),fileName=document.getElementById('fileName'),
   fileMeta=document.getElementById('fileMeta'),fileRemove=document.getElementById('fileRemove'),
@@ -626,8 +1180,6 @@ const dropzone=document.getElementById('dropzone'),fileInput=document.getElement
 
 let selectedFile=null,outputBlob=null,totalPages=0,currentMode='all',selectedPages=new Set(),
   pageThumbnails={},thumbnailAbort=false,cancelRequested=false,cachedPdfBuffer=null;
-// Tracks the actual pages successfully included in the output PDF
-let processedOcrPages=[];
 
 function setupToggle(toggle,label){toggle.addEventListener('click',()=>{toggle.classList.toggle('active');label.textContent=toggle.classList.contains('active')?'ON':'OFF';});}
 setupToggle(enhanceToggle,enhanceLabel);
@@ -639,7 +1191,7 @@ dropzone.addEventListener('drop',e=>{e.preventDefault();dropzone.classList.remov
 fileInput.addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
 
 fileRemove.addEventListener('click',()=>{
-  selectedFile=null;totalPages=0;selectedPages.clear();pageThumbnails={};thumbnailAbort=true;cachedPdfBuffer=null;processedOcrPages=[];
+  selectedFile=null;totalPages=0;selectedPages.clear();pageThumbnails={};thumbnailAbort=true;cachedPdfBuffer=null;
   fileInfo.classList.remove('visible');pageRangeSection.classList.remove('visible');
   startBtn.disabled=true;startBtn.textContent='Select a PDF to begin';fileInput.value='';resultSection.classList.remove('visible');
 });
@@ -818,45 +1370,10 @@ cancelBtn.addEventListener('click',()=>{cancelRequested=true;cancelBtn.classList
 
 startBtn.addEventListener('click',async()=>{if(!selectedFile||selectedPages.size===0)return;await runLocalOCR();});
 
-/**
- * Build a compact page-range suffix for the output filename.
- * Returns '' when all pages of the document were processed (no suffix needed).
- * Otherwise returns something like '_p2-4' or '_p1,3,5' or '_p1-2,5-7'.
- *
- * Examples (totalPages = 10):
- *   [1..10]        → ''
- *   [2,3,4]        → '_p2-4'
- *   [1,3,5]        → '_p1,3,5'
- *   [1,2,5,6,7]    → '_p1-2,5-7'
- *   [1]            → '_p1'
- */
-function buildPageRangeSuffix(pages, total) {
-  if (!pages || pages.length === 0) return '';
-  const sorted = [...pages].sort((a, b) => a - b);
-  // All pages: no suffix
-  if (sorted.length === total && sorted[0] === 1 && sorted[sorted.length - 1] === total) return '';
-  // Compress into compact ranges
-  const ranges = [];
-  let start = sorted[0], end = sorted[0];
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i] === end + 1) {
-      end = sorted[i];
-    } else {
-      ranges.push(start === end ? `${start}` : `${start}-${end}`);
-      start = end = sorted[i];
-    }
-  }
-  ranges.push(start === end ? `${start}` : `${start}-${end}`);
-  return '_p' + ranges.join(',');
-}
-
 async function runLocalOCR(){
-  cancelRequested=false;processedOcrPages=[];
-  startBtn.disabled=true;startBtn.textContent='Processing...';
+  cancelRequested=false;startBtn.disabled=true;startBtn.textContent='Processing...';
   cancelBtn.classList.add('visible');progressSection.classList.add('visible');resultSection.classList.remove('visible');
   logArea.innerHTML='';pagePreviews.innerHTML='';progressEta.textContent='';progressBar.className='progress-bar-fill';
-  saveLibraryBtn.disabled=false;
-  saveLibraryBtn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Save to Library';
 
   const targetDPI=parseInt(dpiMode.value),langSetting=langMode.value,doEnhance=enhanceToggle.classList.contains('active');
   const ocrPages=[...selectedPages].sort((a,b)=>a-b);
@@ -937,24 +1454,40 @@ async function runLocalOCR(){
 
     updateProgress(97,'Generating output PDF...');const mergedBytes=await mergedPdf.save();
     outputBlob=new Blob([mergedBytes],{type:'application/pdf'});
-
-    // Record exactly which pages ended up in the output (for filename suffix)
-    processedOcrPages = pagePdfBytes.map(p => p.pageNum);
-
     await worker.terminate();worker=null;
 
     const totalTime=((Date.now()-startTime)/1000).toFixed(1);
     updateProgress(100,'Done!');progressEta.textContent='';
     log(`Done! ${pagePdfBytes.length} page(s), ${formatSize(mergedBytes.length)}, ${totalTime}s total`,'success');
 
+    // ─── Save to Library ───
+    const ocrFileName = selectedFile.name.replace(/\.pdf$/i, '') + '_OCR.pdf';
+    const libRecord = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      originalName: selectedFile.name,
+      ocrName: ocrFileName,
+      sizeLabel: formatSize(mergedBytes.length),
+      sizeBytes: mergedBytes.length,
+      pageCount: pagePdfBytes.length,
+      timestamp: Date.now(),
+      blob: outputBlob,
+    };
+    try {
+      await libSave(libRecord);
+      log('Saved to library','success');
+    } catch (e) {
+      log('Could not save to library: ' + e.message, 'warn');
+    }
+
     const langBadges=[...detectedLangs].map(l=>`<span class="lang-badge">${getLangLabel(l)}</span>`).join(' ');
     const ocrResults=pageTexts.filter(r=>r.confidence>0);
     const avgConf=ocrResults.length>0?(ocrResults.reduce((s,p)=>s+p.confidence,0)/ocrResults.length).toFixed(1):'—';
-    const pageDesc=processedOcrPages.length===totalPages?`All ${processedOcrPages.length} pages OCR'd`:`${processedOcrPages.length} of ${totalPages} pages OCR'd — [${summarizePages(processedOcrPages)}]`;
+    const processedPages=pagePdfBytes.map(p=>p.pageNum);
+    const pageDesc=processedPages.length===totalPages?`All ${processedPages.length} pages OCR'd`:`${processedPages.length} of ${totalPages} pages OCR'd — [${summarizePages(processedPages)}]`;
     const cancelNote=cancelRequested?'<br><span style="color:var(--warning);">Processing was cancelled early</span>':'';
 
     resultSummary.innerHTML=`${pageDesc} • ${totalTime}s • Avg. confidence ${avgConf}% • ${langBadges}${cancelNote}
-      <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable</span>`;
+      <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable • Saved to library</span>`;
     resultSection.classList.add('visible');
   }catch(err){
     if(!cancelRequested){log(`Fatal error: ${err.message}`,'error');console.error(err);}
@@ -975,148 +1508,13 @@ function summarizePages(pages){
 function updateProgress(pct,detail){progressBar.style.width=pct+'%';progressPct.textContent=Math.round(pct)+'%';if(detail){progressStatus.textContent=detail;progressDetail.textContent=detail;}}
 
 downloadBtn.addEventListener('click',()=>{
-  if(!outputBlob)return;
-  const baseName = selectedFile.name.replace(/\.pdf$/i, '');
-  const pageRangeSuffix = buildPageRangeSuffix(processedOcrPages, totalPages);
-  const downloadName = `${baseName}${pageRangeSuffix}_OCR.pdf`;
-  const url=URL.createObjectURL(outputBlob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=downloadName;
+  if(!outputBlob)return;const url=URL.createObjectURL(outputBlob);const a=document.createElement('a');
+  a.href=url;a.download=selectedFile.name.replace(/\.pdf$/i,'')+'_OCR.pdf';
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
 });
 
-// ── Library save (IndexedDB — stores Blob directly, no base64, no 5 MB cap) ──
-const IDB_NAME = 'scanlens_library';
-const IDB_STORE = 'files';
-const IDB_VERSION = 1;
-const FALLBACK_CACHE = 'scanlens_library_cache_v1';
-const FALLBACK_META_KEY = 'scanlens_library_cache_meta_v1';
-
-function openLibraryDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(IDB_STORE)) {
-        const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
-        store.createIndex('addedAt', 'addedAt', { unique: false });
-      }
-    };
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-function idbPut(db, record) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(record);
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  });
-}
-
-function idbGetAll(db) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readonly');
-    const req = tx.objectStore(IDB_STORE).getAll();
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-function libUid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
-
-function readFallbackMeta() {
-  try {
-    const raw = localStorage.getItem(FALLBACK_META_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_) {
-    return [];
-  }
-}
-
-function writeFallbackMeta(records) {
-  localStorage.setItem(FALLBACK_META_KEY, JSON.stringify(records));
-}
-
-async function fallbackPutRecord(record, blob) {
-  if (!('caches' in window)) {
-    throw new Error('Fallback storage is not available in this browser');
-  }
-  const cacheKey = `/__scanlens_library__/${record.id}.pdf`;
-  const cache = await caches.open(FALLBACK_CACHE);
-  await cache.put(cacheKey, new Response(blob, { headers: { 'Content-Type': 'application/pdf' } }));
-  const meta = readFallbackMeta();
-  meta.push({ ...record, cacheKey, storage: 'cache' });
-  writeFallbackMeta(meta);
-}
-
-const SAVE_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>';
-const CHECK_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-
-saveLibraryBtn.addEventListener('click', async () => {
-  if (!outputBlob) return;
-  saveLibraryBtn.disabled = true;
-  saveLibraryBtn.innerHTML = SAVE_ICON + ' Saving…';
-  try {
-    const baseName = selectedFile.name.replace(/\.pdf$/i, '');
-    const pageRangeSuffix = buildPageRangeSuffix(processedOcrPages, totalPages);
-    const saveName = `${baseName}${pageRangeSuffix}_OCR.pdf`;
-
-    let all = [];
-    let readDb = null;
-    try {
-      readDb = await openLibraryDB();
-      all = all.concat(await idbGetAll(readDb));
-    } catch (_) {
-      // IndexedDB may be blocked in some browser contexts.
-    } finally {
-      if (readDb) readDb.close();
-    }
-    all = all.concat(readFallbackMeta());
-
-    // Duplicate check by name + size
-    if (all.some(r => r.name === saveName && r.size === outputBlob.size)) {
-      saveLibraryBtn.innerHTML = SAVE_ICON + ' Already Saved';
-      saveLibraryBtn.disabled = false;
-      return;
-    }
-
-    const recordBase = {
-      id: libUid(),
-      name: saveName,
-      size: outputBlob.size,
-      pages: processedOcrPages.length,
-      addedAt: Date.now()
-    };
-    let saved = false;
-    let writeDb = null;
-    try {
-      writeDb = await openLibraryDB();
-      await idbPut(writeDb, { ...recordBase, blob: outputBlob }); // stored natively — no base64
-      saved = true;
-    } catch (idbErr) {
-      console.warn('IndexedDB save failed, trying fallback storage:', idbErr);
-    } finally {
-      if (writeDb) writeDb.close();
-    }
-
-    if (!saved) {
-      await fallbackPutRecord(recordBase, outputBlob);
-    }
-
-    saveLibraryBtn.innerHTML = CHECK_ICON + ' Saved to Library!';
-    saveLibraryBtn.disabled = true;
-  } catch(err) {
-    console.error('Save to library failed:', err);
-    saveLibraryBtn.innerHTML = SAVE_ICON + ' Save Failed';
-    saveLibraryBtn.disabled = false;
-  }
-});
+// Init: update library badge on load
+updateLibraryBadge();
 </script>
 </body>
 </html>
