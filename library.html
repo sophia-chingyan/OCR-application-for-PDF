@@ -532,40 +532,46 @@
 
 <script>
 // ── IndexedDB — stores Blob objects natively, no base64, no 5 MB cap ──
-const IDB_NAME = 'scanlens_library';
+const LEGACY_IDB_NAME = 'scanlens_library';
+const APP_IDB_NAME = 'ScanLensLibrary';
 const IDB_STORE = 'files';
 const IDB_VERSION = 1;
+const LEGACY_INDEX = 'addedAt';
+const APP_INDEX = 'timestamp';
 const FALLBACK_CACHE = 'scanlens_library_cache_v1';
 const FALLBACK_META_KEY = 'scanlens_library_cache_meta_v1';
 
-let _db = null;
+const _dbs = new Map();
 
-function openDB() {
-  if (_db) return Promise.resolve(_db);
+function openDB(dbName = LEGACY_IDB_NAME, indexName = LEGACY_INDEX) {
+  if (_dbs.has(dbName)) return Promise.resolve(_dbs.get(dbName));
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    const req = indexedDB.open(dbName, IDB_VERSION);
     req.onupgradeneeded = e => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains(IDB_STORE)) {
         const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
-        store.createIndex('addedAt', 'addedAt', { unique: false });
+        store.createIndex(indexName, indexName, { unique: false });
       }
     };
-    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+    req.onsuccess = e => {
+      _dbs.set(dbName, e.target.result);
+      resolve(e.target.result);
+    };
     req.onerror = e => reject(e.target.error);
   });
 }
 
-function idbGetAll() {
-  return openDB().then(db => new Promise((resolve, reject) => {
+function idbGetAll(dbName = LEGACY_IDB_NAME, indexName = LEGACY_INDEX) {
+  return openDB(dbName, indexName).then(db => new Promise((resolve, reject) => {
     const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).getAll();
     req.onsuccess = e => resolve(e.target.result);
     req.onerror = e => reject(e.target.error);
   }));
 }
 
-function idbPut(record) {
-  return openDB().then(db => new Promise((resolve, reject) => {
+function idbPut(record, dbName = LEGACY_IDB_NAME, indexName = LEGACY_INDEX) {
+  return openDB(dbName, indexName).then(db => new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE, 'readwrite');
     tx.objectStore(IDB_STORE).put(record);
     tx.oncomplete = resolve;
@@ -573,8 +579,8 @@ function idbPut(record) {
   }));
 }
 
-function idbDelete(id) {
-  return openDB().then(db => new Promise((resolve, reject) => {
+function idbDelete(id, dbName = LEGACY_IDB_NAME, indexName = LEGACY_INDEX) {
+  return openDB(dbName, indexName).then(db => new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE, 'readwrite');
     tx.objectStore(IDB_STORE).delete(id);
     tx.oncomplete = resolve;
@@ -582,8 +588,8 @@ function idbDelete(id) {
   }));
 }
 
-function idbClear() {
-  return openDB().then(db => new Promise((resolve, reject) => {
+function idbClear(dbName = LEGACY_IDB_NAME, indexName = LEGACY_INDEX) {
+  return openDB(dbName, indexName).then(db => new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE, 'readwrite');
     tx.objectStore(IDB_STORE).clear();
     tx.oncomplete = resolve;
@@ -683,18 +689,71 @@ let searchQuery = '';
 let sortMode = 'date-desc';
 
 // ── Persistence ──
+function normalizeName(name, fallback = 'document.pdf') {
+  const safeName = String(name || fallback).trim();
+  return safeName.toLowerCase().endsWith('.pdf') ? safeName : `${safeName}.pdf`;
+}
+
+function normalizeRecord(record, sourceDb, storage = 'idb') {
+  const sizeValue = Number(record.size ?? record.sizeBytes ?? 0);
+  const pagesValue = Number(record.pages ?? record.pageCount ?? 0);
+  const addedAtValue = Number(record.addedAt ?? record.timestamp ?? Date.now());
+  const name = normalizeName(record.name || record.ocrName || record.originalName || 'document.pdf');
+
+  return {
+    ...record,
+    name,
+    downloadName: normalizeName(record.ocrName || record.name || record.originalName || name),
+    size: Number.isFinite(sizeValue) ? sizeValue : 0,
+    pages: Number.isFinite(pagesValue) && pagesValue > 0 ? pagesValue : null,
+    addedAt: Number.isFinite(addedAtValue) ? addedAtValue : Date.now(),
+    storage,
+    sourceDb
+  };
+}
+
+function toLegacyRecord(record) {
+  return {
+    id: record.id,
+    name: normalizeName(record.name),
+    size: record.size,
+    pages: record.pages,
+    addedAt: record.addedAt,
+    blob: record.blob,
+    storage: record.storage || 'idb'
+  };
+}
+
+function toAppRecord(record) {
+  const outputName = normalizeName(record.name);
+  return {
+    id: record.id,
+    originalName: record.originalName || outputName,
+    ocrName: outputName,
+    sizeLabel: formatSize(record.size),
+    sizeBytes: record.size,
+    pageCount: record.pages,
+    timestamp: record.addedAt,
+    blob: record.blob
+  };
+}
+
 async function loadLibrary() {
   try {
     const combined = [];
     try {
-      const records = await idbGetAll();
-      combined.push(...records.map(r => ({ ...r, storage: r.storage || 'idb' })));
+      const legacyRecords = await idbGetAll(LEGACY_IDB_NAME, LEGACY_INDEX);
+      combined.push(...legacyRecords.map(r => normalizeRecord(r, LEGACY_IDB_NAME, r.storage || 'idb')));
     } catch (_) {}
     try {
       const fallbackRecords = await loadFallbackRecords();
-      combined.push(...fallbackRecords);
+      combined.push(...fallbackRecords.map(r => normalizeRecord(r, LEGACY_IDB_NAME, 'cache')));
     } catch (_) {}
-    library = combined;
+    try {
+      const appRecords = await idbGetAll(APP_IDB_NAME, APP_INDEX);
+      combined.push(...appRecords.map(r => normalizeRecord(r, APP_IDB_NAME, 'idb')));
+    } catch (_) {}
+    library = combined.sort((a, b) => b.addedAt - a.addedAt);
   } catch(e) {
     library = [];
   }
@@ -703,16 +762,23 @@ async function loadLibrary() {
 async function deleteFromStorage(id) {
   const target = library.find(f => f.id === id);
   library = library.filter(f => f.id !== id);
-  if (target && target.storage === 'cache') {
+  if (!target) return;
+  if (target.storage === 'cache') {
     await fallbackDeleteById(id);
+  } else if (target.sourceDb === APP_IDB_NAME) {
+    await idbDelete(id, APP_IDB_NAME, APP_INDEX);
   } else {
-    await idbDelete(id);
+    await idbDelete(id, LEGACY_IDB_NAME, LEGACY_INDEX);
   }
 }
 
 async function clearStorage() {
   library = [];
-  const tasks = [idbClear(), fallbackClear()];
+  const tasks = [
+    idbClear(LEGACY_IDB_NAME, LEGACY_INDEX),
+    idbClear(APP_IDB_NAME, APP_INDEX),
+    fallbackClear()
+  ];
   await Promise.allSettled(tasks);
 }
 
@@ -769,11 +835,11 @@ async function addFile(file) {
     let entryStored = null;
     try {
       entryStored = { ...entryBase, blob: file, storage: 'idb' };
-      await idbPut(entryStored); // store the File/Blob directly in IndexedDB
+      await idbPut(entryStored, LEGACY_IDB_NAME, LEGACY_INDEX); // store the File/Blob directly in IndexedDB
     } catch (_) {
       entryStored = await fallbackPut(entryBase, file);
     }
-    library.unshift(entryStored);
+    library.unshift(normalizeRecord(entryStored, LEGACY_IDB_NAME, entryStored.storage));
     renderAll();
     showToast(`Added "${file.name}"`, 'success');
   } catch(e) {
@@ -923,7 +989,7 @@ function makeRow(f) {
 }
 
 function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── Actions ──
@@ -933,7 +999,7 @@ function downloadFile(id) {
   const url = URL.createObjectURL(f.blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = f.name;
+  a.download = f.downloadName || f.name;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast(`Downloading "${f.name}"`, 'success');
@@ -968,12 +1034,25 @@ function commitRename(id) {
   const newName = inputEl.value.trim();
   if (newName && newName !== '') {
     const f = library.find(x => x.id === id);
-    if (f && newName !== f.name) {
-      f.name = newName.endsWith('.pdf') ? newName : newName + '.pdf';
+    const normalizedNewName = normalizeName(newName);
+    if (f && normalizedNewName !== f.name) {
+      f.name = normalizedNewName;
+      f.downloadName = normalizedNewName;
+      if (f.sourceDb === APP_IDB_NAME) {
+        f.ocrName = normalizedNewName;
+      }
       if (f.storage === 'cache') {
-        fallbackUpdateMeta(f).catch(() => {});
+        fallbackUpdateMeta(toLegacyRecord(f)).catch(() => {
+          showToast('Rename failed', 'error');
+        });
+      } else if (f.sourceDb === APP_IDB_NAME) {
+        idbPut(toAppRecord(f), APP_IDB_NAME, APP_INDEX).catch(() => {
+          showToast('Rename failed', 'error');
+        });
       } else {
-        idbPut(f).catch(() => {});
+        idbPut(toLegacyRecord(f), LEGACY_IDB_NAME, LEGACY_INDEX).catch(() => {
+          showToast('Rename failed', 'error');
+        });
       }
       showToast('Renamed', 'success');
     }
