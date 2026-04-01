@@ -540,6 +540,12 @@ const FALLBACK_META_KEY = 'scanlens_library_cache_meta_v1';
 
 let _db = null;
 
+function idsMatch(left, right) {
+  return left !== null && left !== undefined &&
+         right !== null && right !== undefined &&
+         String(left) === String(right);
+}
+
 function openDB() {
   if (_db) return Promise.resolve(_db);
   return new Promise((resolve, reject) => {
@@ -641,7 +647,7 @@ async function loadFallbackRecords() {
 
 async function fallbackDeleteById(id) {
   const meta = readFallbackMeta();
-  const idx = meta.findIndex(m => m.id === id);
+  const idx = meta.findIndex(m => idsMatch(m.id, id));
   if (idx < 0) return;
   const [rec] = meta.splice(idx, 1);
   writeFallbackMeta(meta);
@@ -653,7 +659,7 @@ async function fallbackDeleteById(id) {
 
 async function fallbackUpdateMeta(record) {
   const meta = readFallbackMeta();
-  const idx = meta.findIndex(m => m.id === record.id);
+  const idx = meta.findIndex(m => idsMatch(m.id, record.id));
   if (idx < 0) return;
   const prev = meta[idx];
   meta[idx] = {
@@ -701,13 +707,16 @@ async function loadLibrary() {
 }
 
 async function deleteFromStorage(id) {
-  const target = library.find(f => f.id === id);
-  library = library.filter(f => f.id !== id);
+  const target = library.find(f => idsMatch(f.id, id));
+  if (!target) return false;
+  library = library.filter(f => !idsMatch(f.id, id));
+  const storageId = target.id;
   if (target && target.storage === 'cache') {
-    await fallbackDeleteById(id);
+    await fallbackDeleteById(storageId);
   } else {
-    await idbDelete(id);
+    await idbDelete(storageId);
   }
+  return true;
 }
 
 async function clearStorage() {
@@ -928,7 +937,7 @@ function escHtml(str) {
 
 // ── Actions ──
 function downloadFile(id) {
-  const f = library.find(x => x.id === id);
+  const f = library.find(x => idsMatch(x.id, id));
   if (!f || !f.blob) { showToast('File data not available', 'error'); return; }
   const url = URL.createObjectURL(f.blob);
   const a = document.createElement('a');
@@ -941,7 +950,7 @@ function downloadFile(id) {
 
 function confirmDelete(id) {
   deleteTarget = id;
-  const f = library.find(x => x.id === id);
+  const f = library.find(x => idsMatch(x.id, id));
   document.getElementById('deleteModalMsg').textContent =
     `This will permanently remove "${f ? f.name : 'the file'}" from your library.`;
   document.getElementById('deleteModal').classList.add('visible');
@@ -967,7 +976,7 @@ function commitRename(id) {
   if (!inputEl || !inputEl.classList.contains('visible')) return;
   const newName = inputEl.value.trim();
   if (newName && newName !== '') {
-    const f = library.find(x => x.id === id);
+    const f = library.find(x => idsMatch(x.id, id));
     if (f && newName !== f.name) {
       f.name = newName.endsWith('.pdf') ? newName : newName + '.pdf';
       if (f.storage === 'cache') {
@@ -979,7 +988,7 @@ function commitRename(id) {
     }
   }
   inputEl.classList.remove('visible');
-  if (nameEl) { nameEl.classList.remove('editing'); nameEl.textContent = library.find(x=>x.id===id)?.name || ''; }
+  if (nameEl) { nameEl.classList.remove('editing'); nameEl.textContent = library.find(x => idsMatch(x.id, id))?.name || ''; }
 }
 
 function cancelRename(id) {
@@ -1007,11 +1016,15 @@ document.getElementById('deleteCancelBtn').addEventListener('click', () => {
   deleteTarget = null;
 });
 document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
-  if (deleteTarget) {
-    const f = library.find(x => x.id === deleteTarget);
-    await deleteFromStorage(deleteTarget);
+  if (deleteTarget !== null && deleteTarget !== undefined) {
+    const f = library.find(x => idsMatch(x.id, deleteTarget));
+    const deleted = await deleteFromStorage(deleteTarget);
     renderAll();
-    showToast(`Deleted "${f ? f.name : 'file'}"`, 'success');
+    if (deleted) {
+      showToast(`Deleted "${f ? f.name : 'file'}"`, 'success');
+    } else {
+      showToast('File could not be deleted', 'error');
+    }
     deleteTarget = null;
   }
   document.getElementById('deleteModal').classList.remove('visible');
