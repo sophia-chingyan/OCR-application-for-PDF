@@ -401,6 +401,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/library.html")
+def library_page():
+    return render_template("library.html")
+
+
 @app.route("/api/upload", methods=["POST"])
 def upload_pdf():
     """Upload a PDF and get page count info."""

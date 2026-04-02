@@ -160,22 +160,6 @@
 
   .stat-divider { width: 1px; background: var(--border); align-self: stretch; }
 
-  /* ── Drop zone for adding files to library ── */
-  .add-dropzone {
-    border: 2px dashed var(--border); border-radius: var(--radius);
-    padding: 28px; text-align: center; cursor: pointer;
-    transition: all 0.3s ease; background: var(--surface);
-    position: relative; overflow: hidden; margin-bottom: 24px;
-    display: none;
-  }
-  .add-dropzone.visible { display: block; }
-  .add-dropzone:hover, .add-dropzone.drag-over {
-    border-color: var(--accent); box-shadow: 0 4px 24px rgba(108,92,231,0.1);
-  }
-  .add-dropzone p { font-size: 14px; color: var(--text-dim); }
-  .add-dropzone strong { color: var(--accent); }
-  #addFileInput { display: none; }
-
   /* ── Grid layout ── */
   .file-grid {
     display: grid;
@@ -324,7 +308,7 @@
     background: linear-gradient(135deg, var(--accent), #5a4bd1); color: white;
     font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
     cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 8px;
-    white-space: nowrap;
+    white-space: nowrap; text-decoration: none;
   }
   .add-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(108,92,231,0.3); }
 
@@ -392,6 +376,23 @@
   }
   .rename-input.visible { display: block; }
   .card-name.editing { display: none; }
+  .row-name.editing { display: none; }
+
+  /* ── Loading spinner ── */
+  .loading-state {
+    text-align: center; padding: 60px 24px;
+    display: none;
+  }
+  .loading-state.visible { display: block; }
+  .spinner {
+    width: 32px; height: 32px; margin: 0 auto 16px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-state p { font-size: 13px; color: var(--text-dim); }
 
   @media (max-width: 640px) {
     .nav { padding: 0 16px; }
@@ -425,14 +426,14 @@
   <div class="page-header">
     <div>
       <h1>Your Library</h1>
-      <div class="subtitle">OCR'd PDFs saved in this browser</div>
+      <div class="subtitle">OCR-processed PDFs from the server</div>
     </div>
     <div class="header-actions">
       <button class="clear-btn" id="clearAllBtn" style="display:none;">Clear All</button>
-      <button class="add-btn" id="addBtn">
+      <a class="add-btn" href="index.html">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add PDF
-      </button>
+        Convert New
+      </a>
     </div>
   </div>
 
@@ -477,10 +478,10 @@
     </div>
   </div>
 
-  <!-- Drop zone for adding files -->
-  <div class="add-dropzone" id="addDropzone">
-    <p>Drop PDF files here or <strong>click Add PDF</strong> to save them to your library</p>
-    <input type="file" id="addFileInput" accept=".pdf" multiple>
+  <!-- Loading -->
+  <div class="loading-state" id="loadingState">
+    <div class="spinner"></div>
+    <p>Loading library…</p>
   </div>
 
   <!-- File grid -->
@@ -492,19 +493,19 @@
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
     </div>
     <h3>No files yet</h3>
-    <p>Convert a scanned PDF on the Convert tab and save it here,<br>or drag &amp; drop PDF files to add them directly.</p>
-    <button type="button" class="add-btn" id="emptyAddBtn" style="margin: 0 auto;">
+    <p>Convert a scanned PDF on the Convert page to get started.</p>
+    <a class="add-btn" href="index.html" style="margin: 0 auto; display: inline-flex;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Add your first PDF
-    </button>
+      Convert your first PDF
+    </a>
   </div>
 </div>
 
 <!-- Delete confirm modal -->
 <div class="modal-overlay" id="deleteModal">
-  <div class="modal" id="deleteModalBox">
+  <div class="modal">
     <h3>Delete file?</h3>
-    <p id="deleteModalMsg">This will permanently remove the file from your library. The action cannot be undone.</p>
+    <p id="deleteModalMsg">This will permanently remove the file from your library.</p>
     <div class="modal-actions">
       <button type="button" class="modal-cancel" id="deleteCancelBtn">Cancel</button>
       <button type="button" class="modal-confirm" id="deleteConfirmBtn">Delete</button>
@@ -514,7 +515,7 @@
 
 <!-- Clear all confirm modal -->
 <div class="modal-overlay" id="clearModal">
-  <div class="modal" id="clearModalBox">
+  <div class="modal">
     <h3>Clear entire library?</h3>
     <p>All <span id="clearCount">0</span> files will be permanently deleted. This cannot be undone.</p>
     <div class="modal-actions">
@@ -531,213 +532,60 @@
 </div>
 
 <script>
-// ── IndexedDB ──
-// FIX: Use the SAME database name and store as index.html so both pages share data
-const IDB_NAME = 'ScanLensLibrary';
-const IDB_STORE = 'files';
-const IDB_VERSION = 1;
-const FALLBACK_CACHE = 'scanlens_library_cache_v1';
-const FALLBACK_META_KEY = 'scanlens_library_cache_meta_v1';
-
-let _db = null;
-
-function idsMatch(left, right) {
-  return left != null && right != null && String(left) === String(right);
-}
-
-function openDB() {
-  if (_db) return Promise.resolve(_db);
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(IDB_STORE)) {
-        const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-      }
-    };
-    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-function idbGetAll() {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).getAll();
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbPut(record) {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(record);
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbDeleteByKey(key) {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    const store = tx.objectStore(IDB_STORE);
-    store.delete(key);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = e => reject(e.target.error);
-  }));
-}
-
-function idbClear() {
-  return openDB().then(db => new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).clear();
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  }));
-}
-
-function readFallbackMeta() {
-  try {
-    const raw = localStorage.getItem(FALLBACK_META_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_) { return []; }
-}
-
-function writeFallbackMeta(records) {
-  localStorage.setItem(FALLBACK_META_KEY, JSON.stringify(records));
-}
-
-async function fallbackPut(record, blob) {
-  if (!('caches' in window)) throw new Error('Fallback storage is not available');
-  const cacheKey = `/__scanlens_library__/${record.id}.pdf`;
-  const cache = await caches.open(FALLBACK_CACHE);
-  await cache.put(cacheKey, new Response(blob, { headers: { 'Content-Type': 'application/pdf' } }));
-  const meta = readFallbackMeta();
-  meta.push({ ...record, cacheKey, storage: 'cache' });
-  writeFallbackMeta(meta);
-  return { ...record, cacheKey, storage: 'cache', blob };
-}
-
-async function loadFallbackRecords() {
-  const meta = readFallbackMeta();
-  if (meta.length === 0 || !('caches' in window)) return [];
-  const cache = await caches.open(FALLBACK_CACHE);
-  const validMeta = [];
-  const records = [];
-  for (const m of meta) {
-    if (!m || !m.id || !m.cacheKey) continue;
-    const res = await cache.match(m.cacheKey);
-    if (!res) continue;
-    const blob = await res.blob();
-    validMeta.push(m);
-    records.push({ ...m, storage: 'cache', blob });
-  }
-  if (validMeta.length !== meta.length) writeFallbackMeta(validMeta);
-  return records;
-}
-
-async function fallbackDeleteById(id) {
-  const meta = readFallbackMeta();
-  const idx = meta.findIndex(m => idsMatch(m.id, id));
-  if (idx < 0) return;
-  const [rec] = meta.splice(idx, 1);
-  writeFallbackMeta(meta);
-  if ('caches' in window && rec && rec.cacheKey) {
-    const cache = await caches.open(FALLBACK_CACHE);
-    await cache.delete(rec.cacheKey);
-  }
-}
-
-async function fallbackUpdateMeta(record) {
-  const meta = readFallbackMeta();
-  const idx = meta.findIndex(m => idsMatch(m.id, record.id));
-  if (idx < 0) return;
-  const prev = meta[idx];
-  meta[idx] = { id: record.id, name: record.name, size: record.size, pages: record.pages, addedAt: record.addedAt, cacheKey: prev.cacheKey, storage: 'cache' };
-  writeFallbackMeta(meta);
-}
-
-async function fallbackClear() {
-  writeFallbackMeta([]);
-  if ('caches' in window) await caches.delete(FALLBACK_CACHE);
-}
-
 // ── State ──
-let library = [];
+let library = [];       // Fetched from server API
 let currentView = 'grid';
-let deleteTargetRecord = null;
+let deleteTargetId = null;
+let deleteTargetName = '';
 let searchQuery = '';
 let sortMode = 'date-desc';
-// FIX: Flag to suppress rename blur handler when delete button is clicked
 let suppressBlur = false;
 
-// ── Persistence ──
+// ── Server API helpers ──
+async function fetchLibrary() {
+  const res = await fetch('/api/library');
+  if (!res.ok) throw new Error('Failed to load library');
+  return await res.json();
+}
+
+async function deleteFromServer(id) {
+  const res = await fetch(`/api/library/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete');
+  return await res.json();
+}
+
+async function clearOnServer() {
+  const res = await fetch('/api/library/clear', { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to clear library');
+  return await res.json();
+}
+
+async function renameOnServer(id, newName) {
+  const res = await fetch(`/api/library/${id}/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: newName }),
+  });
+  if (!res.ok) throw new Error('Failed to rename');
+  return await res.json();
+}
+
+// ── Load library from server ──
 async function loadLibrary() {
+  document.getElementById('loadingState').classList.add('visible');
   try {
-    const combined = [];
-    try {
-      const records = await idbGetAll();
-      // FIX: Normalize records from index.html's format to library.html's format
-      combined.push(...records.map(r => ({
-        id: r.id,
-        name: r.ocrName || r.name || 'Unknown.pdf',
-        size: r.sizeBytes || r.size || 0,
-        pages: r.pageCount || r.pages || null,
-        addedAt: r.timestamp || r.addedAt || Date.now(),
-        blob: r.blob || null,
-        storage: r.storage || 'idb',
-        // Preserve the original record so we can write it back correctly
-        _originalRecord: r,
-      })));
-    } catch (e) { console.error('IDB load error:', e); }
-    try {
-      const fallbackRecords = await loadFallbackRecords();
-      combined.push(...fallbackRecords);
-    } catch (_) {}
-    library = combined;
-  } catch(e) {
-    library = [];
-  }
-}
-
-async function deleteFromStorage(id) {
-  const target = library.find(f => idsMatch(f.id, id));
-  if (!target) {
-    console.error('deleteFromStorage: target not found for id', id);
-    return false;
-  }
-
-  // Remove from in-memory array first
-  library = library.filter(f => !idsMatch(f.id, id));
-
-  // Delete from backing store using the original id value (preserving its type)
-  try {
-    if (target.storage === 'cache') {
-      await fallbackDeleteById(target.id);
-    } else {
-      await idbDeleteByKey(target.id);
-    }
+    library = await fetchLibrary();
   } catch (e) {
-    console.error('Storage delete error:', e);
-    // Re-add to library if storage deletion failed
-    library.push(target);
-    return false;
+    console.error('Load error:', e);
+    library = [];
+    showToast('Failed to load library', 'error');
   }
-  return true;
-}
-
-async function clearStorage() {
-  library = [];
-  await Promise.allSettled([idbClear(), fallbackClear()]);
+  document.getElementById('loadingState').classList.remove('visible');
 }
 
 // ── Helpers ──
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
-
 function formatSize(bytes) {
+  if (!bytes) return '0 B';
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
   return (bytes/(1024*1024)).toFixed(1) + ' MB';
@@ -745,56 +593,33 @@ function formatSize(bytes) {
 
 function formatDate(ts) {
   const d = new Date(ts);
-  return d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+  return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
 }
 
-function totalStorageSize() { return library.reduce((s, f) => s + (f.size || 0), 0); }
-function totalPages() { return library.reduce((s, f) => s + (f.pages || 0), 0); }
-
-async function getPdfPageCountFromFile(fileOrBlob) {
-  if (typeof pdfjsLib === 'undefined') return null;
-  try {
-    const buf = await fileOrBlob.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-    return pdf.numPages;
-  } catch(e) { return null; }
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-async function addFile(file) {
-  if (file.type !== 'application/pdf') { showToast('Only PDF files are supported', 'error'); return; }
-  const dup = library.find(f => f.name === file.name && f.size === file.size);
-  if (dup) { showToast(`"${file.name}" is already in your library`, 'error'); return; }
-  try {
-    const pages = await getPdfPageCountFromFile(file);
-    const entryBase = { id: uid(), name: file.name, size: file.size, pages, addedAt: Date.now() };
-    let entryStored;
-    try {
-      entryStored = { ...entryBase, blob: file, storage: 'idb' };
-      await idbPut(entryStored);
-    } catch (_) {
-      entryStored = await fallbackPut(entryBase, file);
-    }
-    library.unshift(entryStored);
-    renderAll();
-    showToast(`Added "${file.name}"`, 'success');
-  } catch(e) {
-    showToast('Failed to save file', 'error');
-  }
-}
+function totalStorageSize() { return library.reduce((s, f) => s + (f.size_bytes || 0), 0); }
+function totalPages() { return library.reduce((s, f) => s + (f.page_count || 0), 0); }
 
 // ── Sort & filter ──
 function getDisplayList() {
   let list = [...library];
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
-    list = list.filter(f => f.name.toLowerCase().includes(q));
+    list = list.filter(f =>
+      (f.ocr_name || '').toLowerCase().includes(q) ||
+      (f.original_name || '').toLowerCase().includes(q)
+    );
   }
   switch(sortMode) {
-    case 'date-asc':  list.sort((a,b) => a.addedAt - b.addedAt); break;
-    case 'date-desc': list.sort((a,b) => b.addedAt - a.addedAt); break;
-    case 'name-asc':  list.sort((a,b) => a.name.localeCompare(b.name)); break;
-    case 'name-desc': list.sort((a,b) => b.name.localeCompare(a.name)); break;
-    case 'size-desc': list.sort((a,b) => b.size - a.size); break;
+    case 'date-asc':  list.sort((a,b) => a.timestamp - b.timestamp); break;
+    case 'date-desc': list.sort((a,b) => b.timestamp - a.timestamp); break;
+    case 'name-asc':  list.sort((a,b) => (a.ocr_name||'').localeCompare(b.ocr_name||'')); break;
+    case 'name-desc': list.sort((a,b) => (b.ocr_name||'').localeCompare(a.ocr_name||'')); break;
+    case 'size-desc': list.sort((a,b) => (b.size_bytes||0) - (a.size_bytes||0)); break;
   }
   return list;
 }
@@ -823,11 +648,11 @@ function renderAll() {
     if (hasFiles) {
       empty.querySelector('h3').textContent = 'No results';
       empty.querySelector('p').textContent = 'Try a different search term.';
-      empty.querySelector('button').style.display = 'none';
+      empty.querySelector('a').style.display = 'none';
     } else {
       empty.querySelector('h3').textContent = 'No files yet';
-      empty.querySelector('p').innerHTML = 'Convert a scanned PDF on the Convert tab and save it here,<br>or drag &amp; drop PDF files to add them directly.';
-      empty.querySelector('button').style.display = 'flex';
+      empty.querySelector('p').textContent = 'Convert a scanned PDF on the Convert page to get started.';
+      empty.querySelector('a').style.display = 'inline-flex';
     }
     return;
   }
@@ -841,25 +666,26 @@ function makeCard(f) {
   const el = document.createElement('div');
   el.className = 'file-card';
   el.dataset.fileId = f.id;
+  const displayName = f.ocr_name || f.original_name || 'Unknown.pdf';
   el.innerHTML = `
     <div class="card-preview">
       <div class="pdf-icon"><span>PDF</span></div>
       <div class="ocr-badge">OCR</div>
-      ${f.pages ? `<div class="page-badge">${f.pages}p</div>` : ''}
+      ${f.page_count ? `<div class="page-badge">${f.page_count}p</div>` : ''}
     </div>
     <div class="card-body">
-      <div class="card-name" id="name-${f.id}">${escHtml(f.name)}</div>
-      <input type="text" class="rename-input" id="rename-${f.id}" value="${escHtml(f.name)}">
+      <div class="card-name" id="name-${f.id}">${escHtml(displayName)}</div>
+      <input type="text" class="rename-input" id="rename-${f.id}" value="${escHtml(displayName)}">
       <div class="card-meta">
-        <span>${formatSize(f.size)}</span>
-        <span>${formatDate(f.addedAt)}</span>
+        <span>${f.size_label || formatSize(f.size_bytes)}</span>
+        <span>${formatDate(f.timestamp)}</span>
       </div>
     </div>
     <div class="card-actions">
-      <button type="button" class="btn-icon" data-action="download" title="Download">
+      <a class="btn-icon" href="/api/download/${f.id}" download="${escHtml(displayName)}" title="Download">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Save
-      </button>
+      </a>
       <button type="button" class="btn-icon" data-action="rename" title="Rename">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
@@ -868,22 +694,16 @@ function makeCard(f) {
       </button>
     </div>
   `;
-  el.querySelector('[data-action="download"]').addEventListener('click', (e) => {
-    e.stopPropagation();
-    downloadFile(f.id);
-  });
+
   el.querySelector('[data-action="rename"]').addEventListener('click', (e) => {
     e.stopPropagation();
     startRename(f.id);
   });
-  // FIX: Use click (not mousedown), and set suppressBlur flag to prevent rename blur
-  // from interfering with the delete flow
   el.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
     e.stopPropagation();
     suppressBlur = true;
-    // Cancel any active rename first
     cancelAllRenames();
-    confirmDelete(f.id, f.name);
+    confirmDelete(f.id, displayName);
     setTimeout(() => { suppressBlur = false; }, 100);
   });
 
@@ -902,23 +722,24 @@ function makeRow(f) {
   const el = document.createElement('div');
   el.className = 'file-row';
   el.dataset.fileId = f.id;
+  const displayName = f.ocr_name || f.original_name || 'Unknown.pdf';
   el.innerHTML = `
     <div class="row-icon"><span>PDF</span></div>
     <div class="row-info">
-      <div class="row-name" id="name-${f.id}">${escHtml(f.name)}</div>
-      <input type="text" class="rename-input" id="rename-${f.id}" value="${escHtml(f.name)}">
+      <div class="row-name" id="name-${f.id}">${escHtml(displayName)}</div>
+      <input type="text" class="rename-input" id="rename-${f.id}" value="${escHtml(displayName)}">
       <div class="row-meta">
-        <span>${formatSize(f.size)}</span>
-        ${f.pages ? `<span>${f.pages} pages</span>` : ''}
-        <span>Added ${formatDate(f.addedAt)}</span>
+        <span>${f.size_label || formatSize(f.size_bytes)}</span>
+        ${f.page_count ? `<span>${f.page_count} pages</span>` : ''}
+        <span>Added ${formatDate(f.timestamp)}</span>
       </div>
     </div>
     <div class="row-badge">OCR</div>
     <div class="row-actions">
-      <button type="button" class="row-btn" data-action="download">
+      <a class="row-btn" href="/api/download/${f.id}" download="${escHtml(displayName)}">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Save
-      </button>
+      </a>
       <button type="button" class="row-btn" data-action="rename">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Rename
@@ -929,10 +750,7 @@ function makeRow(f) {
       </button>
     </div>
   `;
-  el.querySelector('[data-action="download"]').addEventListener('click', (e) => {
-    e.stopPropagation();
-    downloadFile(f.id);
-  });
+
   el.querySelector('[data-action="rename"]').addEventListener('click', (e) => {
     e.stopPropagation();
     startRename(f.id);
@@ -941,7 +759,7 @@ function makeRow(f) {
     e.stopPropagation();
     suppressBlur = true;
     cancelAllRenames();
-    confirmDelete(f.id, f.name);
+    confirmDelete(f.id, displayName);
     setTimeout(() => { suppressBlur = false; }, 100);
   });
 
@@ -956,28 +774,12 @@ function makeRow(f) {
   return el;
 }
 
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 // ── Actions ──
-function downloadFile(id) {
-  const f = library.find(x => idsMatch(x.id, id));
-  if (!f || !f.blob) { showToast('File data not available', 'error'); return; }
-  const url = URL.createObjectURL(f.blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = f.name;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast(`Downloading "${f.name}"`, 'success');
-}
-
 function confirmDelete(id, name) {
-  // Store full record info for deletion
-  const found = library.find(x => idsMatch(x.id, id));
-  deleteTargetRecord = found ? { ...found } : { id, name: name || 'this file' };
+  deleteTargetId = id;
+  deleteTargetName = name;
   document.getElementById('deleteModalMsg').textContent =
-    `This will permanently remove "${deleteTargetRecord.name}" from your library.`;
+    `This will permanently remove "${name}" from your library.`;
   document.getElementById('deleteModal').classList.add('visible');
 }
 
@@ -1001,35 +803,36 @@ function startRename(id) {
   inputEl.select();
 }
 
-function commitRename(id) {
+async function commitRename(id) {
   const inputEl = document.getElementById('rename-' + id);
   const nameEl = document.getElementById('name-' + id);
   if (!inputEl || !inputEl.classList.contains('visible')) return;
-  const newName = inputEl.value.trim();
-  if (newName) {
-    const f = library.find(x => idsMatch(x.id, id));
-    if (f && newName !== f.name) {
-      f.name = newName.endsWith('.pdf') ? newName : newName + '.pdf';
-      if (f.storage === 'cache') {
-        fallbackUpdateMeta(f).catch(() => {});
-      } else {
-        // FIX: Write back the original record format with the updated name
-        const writeRecord = f._originalRecord ? { ...f._originalRecord } : { ...f };
-        if (writeRecord.ocrName !== undefined) {
-          writeRecord.ocrName = f.name;
-        } else {
-          writeRecord.name = f.name;
-        }
-        idbPut(writeRecord).catch(() => {});
-      }
+
+  let newName = inputEl.value.trim();
+  if (!newName) {
+    cancelRename(id);
+    return;
+  }
+  if (!newName.endsWith('.pdf')) newName += '.pdf';
+
+  const f = library.find(x => x.id === id);
+  const oldName = f ? (f.ocr_name || f.original_name) : '';
+
+  if (newName !== oldName) {
+    try {
+      await renameOnServer(id, newName);
+      // Update local state
+      if (f) f.ocr_name = newName;
       showToast('Renamed', 'success');
+    } catch (e) {
+      showToast('Rename failed', 'error');
     }
   }
+
   inputEl.classList.remove('visible');
   if (nameEl) {
     nameEl.classList.remove('editing');
-    const f = library.find(x => idsMatch(x.id, id));
-    nameEl.textContent = f ? f.name : nameEl.textContent;
+    nameEl.textContent = f ? (f.ocr_name || f.original_name) : nameEl.textContent;
   }
 }
 
@@ -1053,37 +856,34 @@ function showToast(msg, type = 'success') {
 }
 
 // ── Modal wiring ──
-
-// FIX: Close delete modal when clicking outside the modal box
 document.getElementById('deleteModal').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) {
     document.getElementById('deleteModal').classList.remove('visible');
-    deleteTargetRecord = null;
+    deleteTargetId = null;
   }
 });
 
 document.getElementById('deleteCancelBtn').addEventListener('click', (e) => {
   e.stopPropagation();
   document.getElementById('deleteModal').classList.remove('visible');
-  deleteTargetRecord = null;
+  deleteTargetId = null;
 });
 
-// FIX: The confirm handler now properly captures the record before clearing state
 document.getElementById('deleteConfirmBtn').addEventListener('click', async (e) => {
   e.stopPropagation();
   document.getElementById('deleteModal').classList.remove('visible');
-  if (!deleteTargetRecord) return;
+  if (!deleteTargetId) return;
 
-  const recordToDelete = deleteTargetRecord;
-  deleteTargetRecord = null;
+  const idToDelete = deleteTargetId;
+  const nameToDelete = deleteTargetName;
+  deleteTargetId = null;
+  deleteTargetName = '';
 
   try {
-    const deleted = await deleteFromStorage(recordToDelete.id);
-    if (deleted) {
-      showToast(`Deleted "${recordToDelete.name}"`, 'success');
-    } else {
-      showToast('File could not be deleted', 'error');
-    }
+    await deleteFromServer(idToDelete);
+    // Remove from local array
+    library = library.filter(f => f.id !== idToDelete);
+    showToast(`Deleted "${nameToDelete}"`, 'success');
   } catch (e) {
     console.error('Delete error:', e);
     showToast('Error deleting file', 'error');
@@ -1091,7 +891,6 @@ document.getElementById('deleteConfirmBtn').addEventListener('click', async (e) 
   renderAll();
 });
 
-// FIX: Close clear modal when clicking outside
 document.getElementById('clearModal').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) {
     document.getElementById('clearModal').classList.remove('visible');
@@ -1105,36 +904,21 @@ document.getElementById('clearCancelBtn').addEventListener('click', (e) => {
 
 document.getElementById('clearConfirmBtn').addEventListener('click', async (e) => {
   e.stopPropagation();
-  await clearStorage();
-  renderAll();
   document.getElementById('clearModal').classList.remove('visible');
-  showToast('Library cleared', 'success');
+  try {
+    await clearOnServer();
+    library = [];
+    showToast('Library cleared', 'success');
+  } catch (e) {
+    showToast('Error clearing library', 'error');
+  }
+  renderAll();
 });
 
 document.getElementById('clearAllBtn').addEventListener('click', () => {
   document.getElementById('clearCount').textContent = library.length;
   document.getElementById('clearModal').classList.add('visible');
 });
-
-// ── Add file button ──
-const triggerAddFile = () => document.getElementById('addFileInput').click();
-document.getElementById('addBtn').addEventListener('click', triggerAddFile);
-document.getElementById('emptyAddBtn').addEventListener('click', triggerAddFile);
-document.getElementById('addFileInput').addEventListener('change', e => {
-  Array.from(e.target.files).forEach(addFile);
-  e.target.value = '';
-});
-
-// ── Drop zone ──
-const addDropzone = document.getElementById('addDropzone');
-document.addEventListener('dragover', e => { e.preventDefault(); addDropzone.classList.add('visible', 'drag-over'); });
-document.addEventListener('dragleave', e => { if (!e.relatedTarget) addDropzone.classList.remove('drag-over'); });
-document.addEventListener('drop', e => {
-  e.preventDefault();
-  addDropzone.classList.remove('visible', 'drag-over');
-  Array.from(e.dataTransfer.files).forEach(addFile);
-});
-addDropzone.addEventListener('click', () => document.getElementById('addFileInput').click());
 
 // ── Search ──
 document.getElementById('searchInput').addEventListener('input', e => {
@@ -1162,16 +946,12 @@ document.getElementById('listViewBtn').addEventListener('click', () => {
   renderAll();
 });
 
-// ── Bootstrap ──
-const pdfScript = document.createElement('script');
-pdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-pdfScript.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; };
-document.head.appendChild(pdfScript);
-
+// ── Refresh on tab visibility ──
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadLibrary().then(renderAll);
 });
 
+// ── Bootstrap ──
 loadLibrary().then(renderAll);
 </script>
 </body>
