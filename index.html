@@ -4,656 +4,559 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ScanLens — PDF OCR Converter</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --surface-2: #1a1a26;
-    --surface-3: #22222f;
-    --border: #2a2a3a;
-    --border-hover: #3a3a50;
-    --text: #e8e8f0;
-    --text-dim: #8888a0;
-    --accent: #6c5ce7;
-    --accent-glow: #7c6cf7;
-    --accent-soft: rgba(108, 92, 231, 0.12);
-    --accent-soft-2: rgba(108, 92, 231, 0.22);
-    --success: #00b894;
-    --success-soft: rgba(0, 184, 148, 0.12);
-    --warning: #fdcb6e;
-    --danger: #e17055;
-    --danger-soft: rgba(225, 112, 85, 0.12);
-    --radius: 12px;
-  }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: radial-gradient(ellipse at 30% 20%, rgba(108, 92, 231, 0.06) 0%, transparent 50%),
-                radial-gradient(ellipse at 70% 80%, rgba(0, 184, 148, 0.04) 0%, transparent 50%);
-    z-index: -1;
-    animation: drift 20s ease-in-out infinite alternate;
-  }
-
-  @keyframes drift {
-    0% { transform: translate(0, 0) rotate(0deg); }
-    100% { transform: translate(-3%, 2%) rotate(1deg); }
-  }
-
-  /* ─── Site Header ─── */
-  .site-header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 0 2rem;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    backdrop-filter: blur(12px);
-  }
-  .site-header .brand {
-    font-family: 'Space Mono', monospace;
-    font-size: 13px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--accent);
-    text-decoration: none;
-    cursor: pointer;
-  }
-  .header-nav { display: flex; align-items: center; gap: 4px; }
-  .nav-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-dim);
-    text-decoration: none;
-    transition: color 0.15s, background 0.15s;
-    cursor: pointer;
-    border: none;
-    background: none;
-    font-family: 'DM Sans', sans-serif;
-  }
-  .nav-link:hover { color: var(--text); background: var(--surface-2); }
-  .nav-link.active { color: var(--text); background: var(--surface-3); }
-  .nav-link svg { flex-shrink: 0; }
-
-  /* ─── Page views ─── */
-  .page-view { display: none; }
-  .page-view.active { display: block; }
-
-  .app {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 40px 24px 80px;
-  }
-
-  .header { text-align: center; margin-bottom: 48px; }
-
-  .header h1 {
-    font-size: 38px; font-weight: 700; letter-spacing: -1px;
-    background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    line-height: 1.2;
-  }
-
-  .header p { color: var(--text-dim); font-size: 15px; margin-top: 10px; line-height: 1.6; }
-
-  .dropzone {
-    border: 2px dashed var(--border); border-radius: var(--radius);
-    padding: 56px 32px; text-align: center; cursor: pointer;
-    transition: all 0.3s ease; background: var(--surface);
-    position: relative; overflow: hidden;
-  }
-
-  .dropzone::before {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(135deg, var(--accent-soft), transparent);
-    opacity: 0; transition: opacity 0.3s;
-  }
-
-  .dropzone:hover, .dropzone.drag-over {
-    border-color: var(--accent); transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(108, 92, 231, 0.1);
-  }
-  .dropzone:hover::before, .dropzone.drag-over::before { opacity: 1; }
-
-  .dropzone-icon {
-    width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%;
-    background: var(--accent-soft); display: flex; align-items: center; justify-content: center;
-  }
-  .dropzone-icon svg { width: 24px; height: 24px; stroke: var(--accent); }
-
-  .dropzone h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; position: relative; }
-  .dropzone span { font-size: 13px; color: var(--text-dim); position: relative; }
-
-  #fileInput { display: none; }
-
-  .file-info {
-    display: none; background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 20px 24px; margin-top: 16px;
-    align-items: center; gap: 16px;
-  }
-  .file-info.visible { display: flex; }
-
-  .file-icon {
-    width: 44px; height: 44px; border-radius: 10px;
-    background: linear-gradient(135deg, #e17055, #d63031);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700;
-    color: white; flex-shrink: 0;
-  }
-
-  .file-details { flex: 1; min-width: 0; }
-  .file-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .file-meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-
-  .file-remove {
-    background: none; border: none; color: var(--text-dim); cursor: pointer;
-    padding: 8px; border-radius: 8px; transition: all 0.2s;
-  }
-  .file-remove:hover { color: var(--danger); background: rgba(225, 112, 85, 0.1); }
-
-  .page-range-section {
-    display: none; background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); margin-top: 16px; overflow: hidden;
-  }
-  .page-range-section.visible { display: block; }
-
-  .page-range-header {
-    padding: 20px 24px 0; display: flex; align-items: center; justify-content: space-between;
-  }
-  .page-range-header .settings-title { margin-bottom: 0; }
-
-  .page-count-badge {
-    font-family: 'Space Mono', monospace; font-size: 12px; color: var(--accent);
-    background: var(--accent-soft); padding: 4px 12px; border-radius: 20px;
-  }
-
-  .page-range-controls { padding: 16px 24px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-
-  .range-mode-tabs { display: flex; background: var(--surface-2); border-radius: 8px; padding: 3px; gap: 2px; }
-
-  .range-tab {
-    padding: 7px 14px; border: none; border-radius: 6px; background: transparent;
-    color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-size: 13px;
-    font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap;
-  }
-  .range-tab.active { background: var(--accent); color: white; }
-  .range-tab:not(.active):hover { color: var(--text); background: var(--surface-3); }
-
-  .range-input-group { display: none; align-items: center; gap: 8px; flex: 1; }
-  .range-input-group.visible { display: flex; }
-  .range-input-group label { font-size: 13px; color: var(--text-dim); white-space: nowrap; }
-
-  .range-input {
-    background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
-    padding: 7px 12px; border-radius: 8px; font-family: 'Space Mono', monospace;
-    font-size: 13px; width: 100%; min-width: 0; transition: border-color 0.2s;
-  }
-  .range-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .range-input::placeholder { color: var(--text-dim); opacity: 0.6; }
-  .range-input.error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(225, 112, 85, 0.15); }
-
-  .range-hint { font-size: 11px; color: var(--text-dim); padding: 0 24px; margin-bottom: 4px; }
-  .range-error { font-size: 11px; color: var(--danger); padding: 0 24px 4px; display: none; }
-  .range-error.visible { display: block; }
-
-  .quick-select { display: flex; gap: 6px; padding: 0 24px; flex-wrap: wrap; margin-bottom: 4px; }
-
-  .quick-btn {
-    padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px;
-    background: var(--surface-2); color: var(--text-dim); font-family: 'DM Sans', sans-serif;
-    font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s;
-  }
-  .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-
-  .page-grid-wrapper { padding: 12px 24px 20px; display: none; }
-  .page-grid-wrapper.visible { display: block; }
-
-  .page-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-    gap: 8px; max-height: 320px; overflow-y: auto; padding: 4px;
-  }
-  .page-grid::-webkit-scrollbar { width: 4px; }
-  .page-grid::-webkit-scrollbar-track { background: transparent; }
-  .page-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  .page-cell {
-    aspect-ratio: 3/4; border-radius: 8px; border: 2px solid var(--border);
-    background: var(--surface-2); cursor: pointer; position: relative;
-    overflow: hidden; transition: all 0.2s; display: flex;
-    align-items: center; justify-content: center;
-  }
-  .page-cell:hover { border-color: var(--border-hover); transform: translateY(-1px); }
-  .page-cell.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-  .page-cell img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
-  .page-cell .page-num { position: relative; z-index: 1; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text-dim); }
-  .page-cell.selected .page-num { color: white; }
-  .page-cell .cell-check {
-    position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
-    background: var(--accent); display: flex; align-items: center; justify-content: center;
-    z-index: 2; opacity: 0; transform: scale(0.5); transition: all 0.2s;
-  }
-  .page-cell.selected .cell-check { opacity: 1; transform: scale(1); }
-  .page-cell .cell-overlay { position: absolute; inset: 0; background: rgba(108, 92, 231, 0.25); opacity: 0; transition: opacity 0.2s; }
-  .page-cell.selected .cell-overlay { opacity: 1; }
-
-  .settings {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 24px; margin-top: 16px;
-  }
-
-  .settings-title {
-    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 2px;
-    text-transform: uppercase; color: var(--text-dim); margin-bottom: 20px;
-  }
-
-  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
-  .setting-row + .setting-row { border-top: 1px solid var(--border); }
-  .setting-label { font-size: 14px; font-weight: 500; }
-  .setting-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-
-  select {
-    background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
-    padding: 8px 32px 8px 12px; border-radius: 8px; font-family: 'DM Sans', sans-serif;
-    font-size: 13px; cursor: pointer; appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238888a0' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 12px center;
-    transition: border-color 0.2s; max-width: 240px;
-  }
-  select:hover { border-color: var(--accent); }
-
-  .toggle-wrap { display: flex; align-items: center; gap: 10px; }
-  .toggle {
-    width: 44px; height: 24px; border-radius: 12px; background: var(--surface-2);
-    border: 1px solid var(--border); position: relative; cursor: pointer;
-    transition: all 0.3s; flex-shrink: 0;
-  }
-  .toggle::after {
-    content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
-    border-radius: 50%; background: var(--text-dim); transition: all 0.3s;
-  }
-  .toggle.active { background: var(--accent); border-color: var(--accent); }
-  .toggle.active::after { left: 23px; background: white; }
-  .toggle-label { font-size: 12px; color: var(--text-dim); font-family: 'Space Mono', monospace; }
-
-  .lang-badge {
-    display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px;
-    font-weight: 600; background: var(--accent-soft); color: var(--accent-glow); margin: 2px;
-  }
-
-  .btn-row { display: flex; gap: 12px; margin-top: 24px; }
-
-  .start-btn {
-    flex: 1; padding: 16px; border: none; border-radius: var(--radius);
-    background: linear-gradient(135deg, var(--accent), #5a4bd1); color: white;
-    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden;
-  }
-  .start-btn::before {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1));
-    opacity: 0; transition: opacity 0.3s;
-  }
-  .start-btn:hover:not(:disabled)::before { opacity: 1; }
-  .start-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(108, 92, 231, 0.3); }
-  .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .cancel-btn {
-    display: none; padding: 16px 28px; border: 1px solid var(--danger);
-    border-radius: var(--radius); background: transparent; color: var(--danger);
-    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: all 0.3s; white-space: nowrap;
-  }
-  .cancel-btn:hover { background: rgba(225, 112, 85, 0.1); }
-  .cancel-btn.visible { display: block; }
-
-  .progress-section { display: none; margin-top: 24px; }
-  .progress-section.visible { display: block; }
-
-  .progress-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
-  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .progress-status { font-size: 14px; font-weight: 500; }
-  .progress-pct { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--accent); }
-
-  .progress-bar-track { width: 100%; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
-  .progress-bar-fill {
-    height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-glow));
-    border-radius: 3px; width: 0%; transition: width 0.4s ease;
-  }
-
-  .progress-detail { font-size: 12px; color: var(--text-dim); margin-top: 12px; }
-  .progress-eta { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-family: 'Space Mono', monospace; }
-
-  .page-previews { display: flex; gap: 8px; margin-top: 16px; overflow-x: auto; padding-bottom: 4px; }
-  .page-previews::-webkit-scrollbar { height: 4px; }
-  .page-previews::-webkit-scrollbar-track { background: transparent; }
-  .page-previews::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  .page-thumb {
-    flex-shrink: 0; width: 48px; height: 64px; border-radius: 6px;
-    background: var(--surface-2); border: 2px solid transparent;
-    overflow: hidden; position: relative;
-  }
-  .page-thumb.processing { border-color: var(--accent); }
-  .page-thumb.done { border-color: var(--success); }
-  .page-thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .page-thumb .check {
-    position: absolute; inset: 0; background: rgba(0, 184, 148, 0.3);
-    display: flex; align-items: center; justify-content: center; opacity: 0;
-  }
-  .page-thumb.done .check { opacity: 1; }
-
-  .log-area {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 16px; margin-top: 16px; max-height: 200px; overflow-y: auto;
-    font-family: 'Space Mono', monospace; font-size: 11px; line-height: 1.8; color: var(--text-dim);
-  }
-  .log-area::-webkit-scrollbar { width: 4px; }
-  .log-area::-webkit-scrollbar-track { background: transparent; }
-  .log-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  .log-entry { padding: 2px 0; }
-  .log-entry .time { color: var(--accent); margin-right: 8px; }
-  .log-entry.warn { color: var(--warning); }
-  .log-entry.error { color: var(--danger); }
-  .log-entry.success { color: var(--success); }
-
-  .result-section { display: none; margin-top: 24px; }
-  .result-section.visible { display: block; }
-
-  .result-card {
-    background: var(--surface); border: 1px solid var(--success);
-    border-radius: var(--radius); padding: 32px; text-align: center;
-  }
-
-  .result-icon {
-    width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%;
-    background: rgba(0, 184, 148, 0.1); display: flex; align-items: center; justify-content: center;
-  }
-
-  .result-card h3 { font-size: 18px; margin-bottom: 6px; }
-  .result-card p { font-size: 13px; color: var(--text-dim); margin-bottom: 24px; }
-
-  .download-btn {
-    display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px;
-    border: none; border-radius: var(--radius);
-    background: linear-gradient(135deg, var(--success), #00a884);
-    color: white; font-family: 'DM Sans', sans-serif; font-size: 15px;
-    font-weight: 600; cursor: pointer; transition: all 0.3s;
-  }
-  .download-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0, 184, 148, 0.3); }
-
-  /* ─── Library Styles ─── */
-  .library-wrap {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 2.5rem 1.5rem 4rem;
-  }
-
-  .library-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-  .library-header h1 {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    color: var(--text);
-  }
-  .library-header .count {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-dim);
-    margin-left: 8px;
-  }
-  .library-actions { display: flex; align-items: center; gap: 10px; }
-
-  .lib-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    border: none;
-    transition: all 0.15s;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .lib-btn-primary { background: var(--accent); color: #fff; }
-  .lib-btn-primary:hover { background: var(--accent-glow); }
-  .lib-btn-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(225,112,85,0.3); }
-  .lib-btn-danger:hover { background: rgba(225,112,85,0.2); }
-  .lib-btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
-  .lib-btn-ghost:hover { background: var(--surface-2); color: var(--text); }
-  .lib-btn-sm { padding: 6px 12px; font-size: 12px; }
-
-  .empty-state {
-    text-align: center;
-    padding: 5rem 2rem;
-  }
-  .empty-state .empty-icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.35; }
-  .empty-state h2 { font-size: 20px; color: var(--text-dim); margin-bottom: 8px; }
-  .empty-state p { color: var(--text-dim); font-size: 13px; margin-bottom: 1.5rem; }
-
-  .table-wrap {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
-  .table-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface-2);
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-  .toolbar-left { display: flex; align-items: center; gap: 12px; }
-
-  .select-all-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text-dim);
-    cursor: pointer;
-  }
-  .select-all-wrap input[type="checkbox"] {
-    width: 15px; height: 15px; cursor: pointer;
-    accent-color: var(--accent);
-  }
-
-  .selection-info {
-    font-size: 12px;
-    color: var(--text-dim);
-    padding: 3px 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    font-family: 'Space Mono', monospace;
-  }
-  .selection-info.has-selection {
-    color: var(--accent);
-    border-color: var(--accent-soft-2);
-    background: var(--accent-soft);
-  }
-
-  .lib-table { width: 100%; border-collapse: collapse; }
-  .lib-table thead { background: var(--surface-2); border-bottom: 1px solid var(--border); }
-  .lib-table th {
-    padding: 10px 16px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-dim);
-    text-align: left;
-    font-family: 'Space Mono', monospace;
-  }
-  .lib-table th:first-child { width: 40px; padding-left: 20px; }
-  .lib-table th:last-child { text-align: right; padding-right: 20px; }
-
-  .lib-row {
-    border-bottom: 1px solid var(--border);
-    transition: background 0.12s, opacity 0.3s, transform 0.3s;
-  }
-  .lib-row:last-child { border-bottom: none; }
-  .lib-row:hover { background: var(--surface-2); }
-  .lib-row.selected { background: var(--accent-soft); }
-  .lib-row.removing { opacity: 0; transform: translateX(12px); }
-
-  .lib-table td { padding: 12px 16px; vertical-align: middle; }
-  .lib-table td:first-child { padding-left: 20px; }
-  .lib-table td:last-child { text-align: right; padding-right: 20px; }
-
-  td input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
-
-  .book-meta { display: flex; align-items: center; gap: 12px; }
-  .book-thumb-placeholder {
-    width: 38px; height: 52px; border-radius: 6px;
-    background: linear-gradient(135deg, #e17055, #d63031);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Space Mono', monospace; font-size: 9px; font-weight: 700;
-    color: white; flex-shrink: 0; border: 1px solid var(--border);
-  }
-  .book-name { font-weight: 600; font-size: 13px; color: var(--text); line-height: 1.3; word-break: break-word; }
-  .book-filename { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-
-  .badge {
-    display: inline-block; padding: 3px 10px; border-radius: 4px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-    font-family: 'Space Mono', monospace;
-  }
-  .badge-pdf { background: var(--danger-soft); color: var(--danger); }
-
-  .file-size-lib { font-size: 13px; color: var(--text-dim); font-family: 'Space Mono', monospace; }
-
-  .date-cell { font-size: 12px; color: var(--text-dim); }
-
-  .row-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
-
-  /* ─── Toast ─── */
-  #toast-container {
-    position: fixed; bottom: 1.5rem; right: 1.5rem;
-    display: flex; flex-direction: column; gap: 8px; z-index: 9999;
-  }
-  .toast {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 16px; border-radius: 10px;
-    font-size: 13px; font-weight: 500;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    animation: slideUp 0.25s ease;
-    max-width: 320px;
-  }
-  .toast-success { background: var(--surface-3); color: var(--success); border: 1px solid rgba(0,184,148,0.3); }
-  .toast-error { background: var(--surface-3); color: var(--danger); border: 1px solid rgba(225,112,85,0.3); }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-  /* ─── Modal ─── */
-  .modal-backdrop {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.6); z-index: 500;
-    align-items: center; justify-content: center;
-    backdrop-filter: blur(4px);
-  }
-  .modal-backdrop.open { display: flex; }
-  .modal {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    padding: 2rem; width: 100%; max-width: 400px;
-    animation: popIn 0.2s ease;
-  }
-  @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-  .modal h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
-  .modal p { font-size: 13px; color: var(--text-dim); margin-bottom: 1.5rem; line-height: 1.5; }
-  .modal p strong { color: var(--text); }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-
-  @media (max-width: 600px) {
-    .app { padding: 24px 16px 60px; }
-    .header h1 { font-size: 28px; }
-    .dropzone { padding: 40px 20px; }
-    .setting-row { flex-direction: column; align-items: flex-start; gap: 8px; }
-    .page-range-controls { flex-direction: column; }
-    .range-input-group { width: 100%; }
-    .btn-row { flex-direction: column; }
-    select { max-width: 100%; }
-    .site-header { padding: 0 1rem; }
-    .library-wrap { padding: 1.5rem 1rem 3rem; }
-    .library-header { flex-direction: column; align-items: flex-start; }
-    .lib-table th:nth-child(4), .lib-table td:nth-child(4) { display: none; }
-    .lib-table th:nth-child(5), .lib-table td:nth-child(5) { display: none; }
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #08080c;
+  --surface: #101017;
+  --surface-2: #16161f;
+  --surface-3: #1e1e2a;
+  --surface-4: #262635;
+  --border: #25253a;
+  --border-hover: #35354f;
+  --text: #eaeaf3;
+  --text-mid: #b0b0c8;
+  --text-dim: #6e6e8a;
+  --accent: #5b7fff;
+  --accent-glow: #7b9aff;
+  --accent-soft: rgba(91, 127, 255, 0.10);
+  --accent-soft-2: rgba(91, 127, 255, 0.20);
+  --accent-border: rgba(91, 127, 255, 0.25);
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.10);
+  --success-border: rgba(52, 211, 153, 0.25);
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.10);
+  --danger-border: rgba(248, 113, 113, 0.25);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow-lg: 0 12px 48px rgba(0,0,0,0.5);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Ambient bg ─── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(91,127,255,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 85%, rgba(52,211,153,0.04) 0%, transparent 60%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ─── Header ─── */
+.site-header {
+  height: 54px;
+  background: rgba(16,16,23,0.85);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky; top: 0; z-index: 100;
+}
+.brand {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 700; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--accent);
+  cursor: pointer; text-decoration: none;
+  transition: color 0.2s;
+}
+.brand:hover { color: var(--accent-glow); }
+.header-nav { display: flex; gap: 3px; }
+.nav-link {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 16px; border-radius: 9px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-dim); background: none; border: none;
+  font-family: 'Outfit', sans-serif; cursor: pointer;
+  transition: all 0.15s;
+}
+.nav-link:hover { color: var(--text-mid); background: var(--surface-2); }
+.nav-link.active { color: var(--text); background: var(--surface-3); }
+.nav-link svg { width: 14px; height: 14px; flex-shrink: 0; }
+.nav-badge {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+  background: var(--accent); color: white;
+  padding: 1px 7px; border-radius: 10px;
+  display: none;
+}
+.nav-badge.visible { display: inline-block; }
+
+/* ─── Views ─── */
+.page-view { display: none; }
+.page-view.active { display: block; }
+
+.app { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+
+/* ─── Converter header ─── */
+.hero { text-align: center; margin-bottom: 2.5rem; }
+.hero h1 {
+  font-size: 2.4rem; font-weight: 800; letter-spacing: -1.5px;
+  line-height: 1.15;
+  background: linear-gradient(135deg, var(--text) 30%, var(--text-dim) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero p {
+  color: var(--text-dim); font-size: 14px; line-height: 1.65;
+  margin-top: 0.75rem; max-width: 520px; margin-inline: auto;
+}
+.hero p strong { color: var(--text-mid); font-weight: 600; }
+
+/* ─── Dropzone ─── */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius); padding: 3.5rem 2rem;
+  text-align: center; cursor: pointer;
+  background: var(--surface);
+  transition: all 0.3s;
+  position: relative; overflow: hidden;
+}
+.dropzone::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--accent-soft), transparent 70%);
+  opacity: 0; transition: opacity 0.3s;
+}
+.dropzone:hover, .dropzone.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft), 0 8px 32px rgba(91,127,255,0.08);
+  transform: translateY(-1px);
+}
+.dropzone:hover::after, .dropzone.drag-over::after { opacity: 1; }
+.dz-icon {
+  width: 52px; height: 52px; margin: 0 auto 1rem;
+  border-radius: 50%; background: var(--accent-soft);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 1;
+}
+.dz-icon svg { width: 22px; height: 22px; stroke: var(--accent); }
+.dropzone h3 { font-size: 15px; font-weight: 600; position: relative; z-index: 1; }
+.dropzone span { font-size: 12px; color: var(--text-dim); position: relative; z-index: 1; }
+#fileInput { display: none; }
+
+/* ─── File info ─── */
+.file-info {
+  display: none; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 1rem 1.25rem;
+  margin-top: 1rem; align-items: center; gap: 1rem;
+}
+.file-info.visible { display: flex; }
+.f-icon {
+  width: 42px; height: 42px; border-radius: 10px;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  font-weight: 700; color: white; flex-shrink: 0;
+}
+.f-details { flex: 1; min-width: 0; }
+.f-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.f-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.f-remove {
+  background: none; border: none; color: var(--text-dim);
+  cursor: pointer; padding: 6px; border-radius: 8px; transition: all 0.2s;
+}
+.f-remove:hover { color: var(--danger); background: var(--danger-soft); }
+
+/* ─── Page selection ─── */
+.page-range-section {
+  display: none; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-top: 1rem; overflow: hidden;
+}
+.page-range-section.visible { display: block; }
+.pr-header { padding: 1.25rem 1.25rem 0; display: flex; align-items: center; justify-content: space-between; }
+.section-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim);
+}
+.page-badge {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 3px 10px; border-radius: 20px;
+}
+.pr-controls { padding: 1rem 1.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.mode-tabs { display: flex; background: var(--surface-2); border-radius: 9px; padding: 3px; gap: 2px; }
+.mode-tab {
+  padding: 6px 14px; border: none; border-radius: 7px;
+  background: transparent; color: var(--text-dim);
+  font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.mode-tab.active { background: var(--accent); color: white; }
+.mode-tab:not(.active):hover { color: var(--text-mid); background: var(--surface-3); }
+
+.range-group { display: none; align-items: center; gap: 6px; flex: 1; }
+.range-group.visible { display: flex; }
+.range-group label { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+.range-input {
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 10px; border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  width: 100%; min-width: 0; transition: border-color 0.2s;
+}
+.range-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.range-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+.range-input.error { border-color: var(--danger); }
+.range-hint { font-size: 10px; color: var(--text-dim); padding: 0 1.25rem; margin-bottom: 2px; }
+.range-error { font-size: 10px; color: var(--danger); padding: 0 1.25rem 4px; display: none; }
+.range-error.visible { display: block; }
+.quick-btns { display: flex; gap: 5px; padding: 0 1.25rem; flex-wrap: wrap; margin-bottom: 6px; }
+.q-btn {
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface-2); color: var(--text-dim);
+  font-family: 'Outfit', sans-serif; font-size: 10px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s;
+}
+.q-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+.page-grid-wrap { padding: 0.75rem 1.25rem 1.25rem; display: none; }
+.page-grid-wrap.visible { display: block; }
+.page-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 6px; max-height: 280px; overflow-y: auto; padding: 2px;
+}
+.page-grid::-webkit-scrollbar { width: 3px; }
+.page-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.pg-cell {
+  aspect-ratio: 3/4; border-radius: 7px; border: 2px solid var(--border);
+  background: var(--surface-2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; position: relative;
+}
+.pg-cell:hover { border-color: var(--border-hover); }
+.pg-cell.selected { border-color: var(--accent); background: var(--accent-soft); }
+.pg-cell .num {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+  color: var(--text-dim);
+}
+.pg-cell.selected .num { color: var(--accent-glow); }
+
+/* ─── Settings ─── */
+.settings {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem; margin-top: 1rem;
+}
+.s-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.75rem 0;
+}
+.s-row + .s-row { border-top: 1px solid var(--border); }
+.s-label { font-size: 13px; font-weight: 500; }
+.s-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+select {
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 28px 7px 10px; border-radius: 8px;
+  font-family: 'Outfit', sans-serif; font-size: 12px;
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236e6e8a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  transition: border-color 0.2s; max-width: 220px;
+}
+select:hover { border-color: var(--accent); }
+
+.toggle-wrap { display: flex; align-items: center; gap: 8px; }
+.toggle {
+  width: 40px; height: 22px; border-radius: 11px;
+  background: var(--surface-3); border: 1px solid var(--border);
+  position: relative; cursor: pointer; transition: all 0.25s; flex-shrink: 0;
+}
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--text-dim); transition: all 0.25s;
+}
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle.on::after { left: 20px; background: white; }
+.toggle-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: var(--text-dim); letter-spacing: 1px;
+}
+
+/* ─── Buttons ─── */
+.btn-row { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+.start-btn {
+  flex: 1; padding: 14px; border: none; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent), #4a6ae8);
+  color: white; font-family: 'Outfit', sans-serif; font-size: 14px;
+  font-weight: 600; cursor: pointer; transition: all 0.25s;
+  position: relative; overflow: hidden;
+}
+.start-btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255,255,255,0.08));
+  opacity: 0; transition: opacity 0.25s;
+}
+.start-btn:hover:not(:disabled)::after { opacity: 1; }
+.start-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(91,127,255,0.25);
+}
+.start-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.cancel-btn {
+  display: none; padding: 14px 24px; border: 1px solid var(--danger-border);
+  border-radius: var(--radius-sm); background: transparent;
+  color: var(--danger); font-family: 'Outfit', sans-serif;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s; white-space: nowrap;
+}
+.cancel-btn:hover { background: var(--danger-soft); }
+.cancel-btn.visible { display: block; }
+
+/* ─── Progress ─── */
+.progress-section { display: none; margin-top: 1.5rem; }
+.progress-section.visible { display: block; }
+.progress-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem;
+}
+.prog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.prog-status { font-size: 13px; font-weight: 500; }
+.prog-pct { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); }
+.prog-track { width: 100%; height: 5px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+.prog-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-glow));
+  border-radius: 3px; width: 0%; transition: width 0.5s ease;
+}
+.prog-detail { font-size: 11px; color: var(--text-dim); margin-top: 0.75rem; }
+.prog-eta {
+  font-size: 10px; color: var(--text-dim); margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.log-area {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 1rem; margin-top: 1rem;
+  max-height: 180px; overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  line-height: 1.9; color: var(--text-dim);
+}
+.log-area::-webkit-scrollbar { width: 3px; }
+.log-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.log-entry { padding: 1px 0; }
+.log-entry .time { color: var(--accent); margin-right: 8px; }
+.log-entry.warn { color: var(--warn); }
+.log-entry.error { color: var(--danger); }
+.log-entry.success { color: var(--success); }
+
+/* ─── Result ─── */
+.result-section { display: none; margin-top: 1.5rem; }
+.result-section.visible { display: block; }
+.result-card {
+  background: var(--surface); border: 1px solid var(--success-border);
+  border-radius: var(--radius); padding: 2rem; text-align: center;
+}
+.result-icon {
+  width: 56px; height: 56px; margin: 0 auto 1rem; border-radius: 50%;
+  background: var(--success-soft); display: flex;
+  align-items: center; justify-content: center;
+}
+.result-card h3 { font-size: 17px; margin-bottom: 6px; }
+.result-card p { font-size: 12px; color: var(--text-dim); margin-bottom: 1.5rem; line-height: 1.6; }
+.lang-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 20px;
+  font-size: 10px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent-glow);
+}
+.dl-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 28px; border: none; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--success), #2bb87d);
+  color: white; font-family: 'Outfit', sans-serif; font-size: 14px;
+  font-weight: 600; cursor: pointer; transition: all 0.25s;
+  text-decoration: none;
+}
+.dl-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(52,211,153,0.25); }
+
+/* ═══════ LIBRARY ═══════ */
+.lib-wrap { max-width: 1060px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+.lib-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;
+}
+.lib-header h1 {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+}
+.lib-header .count { font-size: 13px; color: var(--text-dim); margin-left: 6px; font-weight: 400; }
+.lib-actions { display: flex; gap: 8px; }
+
+.lb {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 9px;
+  font-size: 12px; font-weight: 600; font-family: 'Outfit', sans-serif;
+  cursor: pointer; border: none; transition: all 0.15s;
+  text-decoration: none; white-space: nowrap;
+}
+.lb-primary { background: var(--accent); color: white; }
+.lb-primary:hover { background: var(--accent-glow); }
+.lb-danger { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-border); }
+.lb-danger:hover { background: rgba(248,113,113,0.18); }
+.lb-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.lb-ghost:hover { background: var(--surface-2); color: var(--text); }
+.lb-sm { padding: 5px 11px; font-size: 11px; }
+
+.empty-state { text-align: center; padding: 5rem 2rem; }
+.empty-state .e-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
+.empty-state h2 { font-size: 18px; color: var(--text-dim); margin-bottom: 6px; }
+.empty-state p { color: var(--text-dim); font-size: 12px; margin-bottom: 1.5rem; }
+
+/* ── Table ── */
+.table-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.table-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
+  background: var(--surface-2); gap: 0.75rem; flex-wrap: wrap;
+}
+.toolbar-left { display: flex; align-items: center; gap: 10px; }
+.sel-wrap {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-dim); cursor: pointer;
+}
+.sel-wrap input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+.sel-info {
+  font-size: 11px; color: var(--text-dim);
+  padding: 2px 8px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 16px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sel-info.has { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+
+.lib-table { width: 100%; border-collapse: collapse; }
+.lib-table thead { background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.lib-table th {
+  padding: 8px 14px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); text-align: left;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lib-table th:first-child { width: 36px; padding-left: 1.25rem; }
+.lib-table th:last-child { text-align: right; padding-right: 1.25rem; }
+.lib-row {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s, opacity 0.3s;
+}
+.lib-row:last-child { border-bottom: none; }
+.lib-row:hover { background: var(--surface-2); }
+.lib-row.selected { background: var(--accent-soft); }
+.lib-row.removing { opacity: 0; transform: translateX(10px); transition: all 0.3s; }
+.lib-table td { padding: 10px 14px; vertical-align: middle; }
+.lib-table td:first-child { padding-left: 1.25rem; }
+.lib-table td:last-child { text-align: right; padding-right: 1.25rem; }
+td input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+.book-meta { display: flex; align-items: center; gap: 10px; }
+.book-thumb {
+  width: 34px; height: 46px; border-radius: 5px;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 8px;
+  font-weight: 700; color: white; flex-shrink: 0;
+}
+.book-name { font-weight: 600; font-size: 12px; line-height: 1.3; word-break: break-word; }
+.book-sub { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  font-family: 'JetBrains Mono', monospace;
+}
+.badge-pdf { background: var(--danger-soft); color: var(--danger); }
+.file-sz { font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+.date-cell { font-size: 11px; color: var(--text-dim); }
+.row-actions { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+
+/* ─── Modal ─── */
+.modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); z-index: 500;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-bg.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; box-shadow: var(--shadow-lg);
+  padding: 1.75rem; width: 100%; max-width: 380px;
+  animation: popIn 0.2s ease;
+}
+@keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.modal h3 { font-size: 16px; margin-bottom: 6px; }
+.modal p { font-size: 12px; color: var(--text-dim); margin-bottom: 1.25rem; line-height: 1.5; }
+.modal p strong { color: var(--text); }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ─── Toast ─── */
+#toast-container {
+  position: fixed; bottom: 1.25rem; right: 1.25rem;
+  display: flex; flex-direction: column; gap: 6px; z-index: 9999;
+}
+.toast {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; border-radius: 10px;
+  font-size: 12px; font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  animation: slideUp 0.25s ease; max-width: 300px;
+}
+.toast-ok { background: var(--surface-3); color: var(--success); border: 1px solid var(--success-border); }
+.toast-err { background: var(--surface-3); color: var(--danger); border: 1px solid var(--danger-border); }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 600px) {
+  .app { padding: 1.5rem 1rem 4rem; }
+  .hero h1 { font-size: 1.8rem; }
+  .dropzone { padding: 2.5rem 1.25rem; }
+  .s-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .pr-controls { flex-direction: column; }
+  .range-group { width: 100%; }
+  .btn-row { flex-direction: column; }
+  select { max-width: 100%; }
+  .lib-wrap { padding: 1.5rem 1rem 3rem; }
+  .lib-header { flex-direction: column; align-items: flex-start; }
+  .lib-table th:nth-child(4), .lib-table td:nth-child(4) { display: none; }
+  .lib-table th:nth-child(5), .lib-table td:nth-child(5) { display: none; }
+}
 </style>
 </head>
 <body>
 
-<!-- ─── Site Header ─── -->
+<!-- Header -->
 <header class="site-header">
   <a class="brand" onclick="showView('converter')">ScanLens</a>
   <nav class="header-nav">
     <button class="nav-link active" id="nav-converter" onclick="showView('converter')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
       Convert
     </button>
     <button class="nav-link" id="nav-library" onclick="showView('library')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       Library
-      <span id="nav-library-badge" style="display:none; background:var(--accent); color:white; font-size:10px; padding:1px 6px; border-radius:10px; font-family:'Space Mono',monospace;"></span>
+      <span class="nav-badge" id="nav-badge"></span>
     </button>
   </nav>
 </header>
 
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- CONVERTER VIEW -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- ══════ CONVERTER ══════ -->
 <div class="page-view active" id="view-converter">
 <div class="app">
-  <header class="header">
-    <h1>Scanned PDF to Readable PDF</h1>
-    <p>Upload a camera-scanned PDF. OCR extracts a searchable text layer while preserving images.<br>
-       Supports <strong>English</strong>, <strong>Traditional &amp; Simplified Chinese</strong> (horizontal + vertical),
-       <strong>Japanese</strong> (horizontal + vertical), and <strong>Korean</strong>.</p>
+  <header class="hero">
+    <h1>Scanned PDF → Readable PDF</h1>
+    <p>Upload a camera-scanned PDF. Server-side OCR with <strong>Tesseract</strong> extracts a searchable text layer while preserving your original pages.</p>
   </header>
 
   <div class="dropzone" id="dropzone">
-    <div class="dropzone-icon">
+    <div class="dz-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
         <polyline points="17 8 12 3 7 8"/>
@@ -666,98 +569,76 @@
   </div>
 
   <div class="file-info" id="fileInfo">
-    <div class="file-icon">PDF</div>
-    <div class="file-details">
-      <div class="file-name" id="fileName"></div>
-      <div class="file-meta" id="fileMeta"></div>
+    <div class="f-icon">PDF</div>
+    <div class="f-details">
+      <div class="f-name" id="fileName"></div>
+      <div class="f-meta" id="fileMeta"></div>
     </div>
-    <button class="file-remove" id="fileRemove" title="Remove file">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    <button class="f-remove" id="fileRemove" title="Remove file">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
 
   <div class="page-range-section" id="pageRangeSection">
-    <div class="page-range-header">
-      <div class="settings-title">Page Selection</div>
-      <div class="page-count-badge" id="pageCountBadge">0 pages selected</div>
+    <div class="pr-header">
+      <div class="section-label">Page Selection</div>
+      <div class="page-badge" id="pageCountBadge">0 pages</div>
     </div>
-    <div class="page-range-controls">
-      <div class="range-mode-tabs">
-        <button class="range-tab active" data-mode="all">All Pages</button>
-        <button class="range-tab" data-mode="range">Range</button>
-        <button class="range-tab" data-mode="custom">Custom</button>
-        <button class="range-tab" data-mode="pick">Pick</button>
+    <div class="pr-controls">
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="all">All</button>
+        <button class="mode-tab" data-mode="range">Range</button>
+        <button class="mode-tab" data-mode="custom">Custom</button>
+        <button class="mode-tab" data-mode="pick">Pick</button>
       </div>
-      <div class="range-input-group" id="rangeInputGroup">
+      <div class="range-group" id="rangeInputGroup">
         <label>From</label>
         <input type="number" class="range-input" id="rangeFrom" min="1" placeholder="1">
         <label>to</label>
         <input type="number" class="range-input" id="rangeTo" min="1" placeholder="—">
       </div>
-      <div class="range-input-group" id="customInputGroup">
+      <div class="range-group" id="customInputGroup">
         <input type="text" class="range-input" id="customRange" placeholder="e.g. 1, 3, 5-8, 12">
       </div>
     </div>
     <div class="range-hint" id="rangeHint"></div>
     <div class="range-error" id="rangeError"></div>
-    <div class="quick-select" id="quickSelect"></div>
-    <div class="page-grid-wrapper" id="pageGridWrapper">
+    <div class="quick-btns" id="quickSelect"></div>
+    <div class="page-grid-wrap" id="pageGridWrapper">
       <div class="page-grid" id="pageGrid"></div>
     </div>
   </div>
 
   <div class="settings">
-    <div class="settings-title">OCR Settings</div>
-    <div class="setting-row">
+    <div class="section-label" style="margin-bottom:1rem;">OCR Settings</div>
+    <div class="s-row">
       <div>
-        <div class="setting-label">Language Detection</div>
-        <div class="setting-desc">Auto-detect scans the first page and checks vertical orientation for CJK/Japanese</div>
+        <div class="s-label">Language</div>
+        <div class="s-desc">Auto-detect uses English to scan the first page</div>
       </div>
       <select id="langMode">
         <option value="auto">Auto-detect</option>
-        <optgroup label="English">
-          <option value="eng">English</option>
-        </optgroup>
-        <optgroup label="Traditional Chinese">
-          <option value="chi_tra">Traditional Chinese — Horizontal</option>
-          <option value="chi_tra_vert">Traditional Chinese — Vertical</option>
-        </optgroup>
-        <optgroup label="Simplified Chinese">
-          <option value="chi_sim">Simplified Chinese — Horizontal</option>
-          <option value="chi_sim_vert">Simplified Chinese — Vertical</option>
-        </optgroup>
-        <optgroup label="Japanese">
-          <option value="jpn">Japanese — Horizontal</option>
-          <option value="jpn_vert">Japanese — Vertical</option>
-        </optgroup>
-        <optgroup label="Korean">
-          <option value="kor">Korean</option>
-        </optgroup>
-        <optgroup label="Combined">
-          <option value="chi_tra+chi_sim+eng">Chinese + English (slower)</option>
-          <option value="jpn+kor+eng">Japanese + Korean + English</option>
-          <option value="chi_tra+chi_tra_vert+chi_sim+chi_sim_vert+jpn+jpn_vert+kor+eng">All Languages (slowest)</option>
-        </optgroup>
+        <option value="eng">English</option>
       </select>
     </div>
-    <div class="setting-row">
+    <div class="s-row">
       <div>
-        <div class="setting-label">Output Quality</div>
-        <div class="setting-desc">Higher DPI = better OCR but slower &amp; more memory</div>
+        <div class="s-label">Output Quality</div>
+        <div class="s-desc">Higher DPI = better OCR but slower</div>
       </div>
       <select id="dpiMode">
         <option value="150" selected>Fast (150 DPI)</option>
         <option value="200">Standard (200 DPI)</option>
-        <option value="300">High (300 DPI) — slow</option>
+        <option value="300">High (300 DPI)</option>
       </select>
     </div>
-    <div class="setting-row">
+    <div class="s-row">
       <div>
-        <div class="setting-label">Image Enhancement</div>
-        <div class="setting-desc">Apply contrast boost to improve OCR on camera photos</div>
+        <div class="s-label">Image Enhancement</div>
+        <div class="s-desc">Contrast boost for camera photos</div>
       </div>
       <div class="toggle-wrap">
-        <div class="toggle active" id="enhanceToggle"></div>
+        <div class="toggle on" id="enhanceToggle"></div>
         <span class="toggle-label" id="enhanceLabel">ON</span>
       </div>
     </div>
@@ -770,16 +651,15 @@
 
   <div class="progress-section" id="progressSection">
     <div class="progress-card">
-      <div class="progress-header">
-        <div class="progress-status" id="progressStatus">Initializing...</div>
-        <div class="progress-pct" id="progressPct">0%</div>
+      <div class="prog-header">
+        <div class="prog-status" id="progressStatus">Initializing...</div>
+        <div class="prog-pct" id="progressPct">0%</div>
       </div>
-      <div class="progress-bar-track">
-        <div class="progress-bar-fill" id="progressBar"></div>
+      <div class="prog-track">
+        <div class="prog-fill" id="progressBar"></div>
       </div>
-      <div class="progress-detail" id="progressDetail"></div>
-      <div class="progress-eta" id="progressEta"></div>
-      <div class="page-previews" id="pagePreviews"></div>
+      <div class="prog-detail" id="progressDetail"></div>
+      <div class="prog-eta" id="progressEta"></div>
     </div>
     <div class="log-area" id="logArea"></div>
   </div>
@@ -787,734 +667,487 @@
   <div class="result-section" id="resultSection">
     <div class="result-card">
       <div class="result-icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00b894" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
       <h3>OCR Complete!</h3>
       <p id="resultSummary"></p>
-      <button class="download-btn" id="downloadBtn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <a class="dl-btn" id="downloadBtn" href="#" download>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Download Readable PDF
-      </button>
+      </a>
     </div>
   </div>
 </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════ -->
-<!-- LIBRARY VIEW -->
-<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- ══════ LIBRARY ══════ -->
 <div class="page-view" id="view-library">
-<div class="library-wrap">
-  <div class="library-header">
+<div class="lib-wrap">
+  <div class="lib-header">
     <h1>Library <span class="count" id="lib-count"></span></h1>
-    <div class="library-actions">
-      <button class="lib-btn lib-btn-primary" onclick="showView('converter')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <div class="lib-actions">
+      <button class="lb lb-danger lb-sm" id="lib-clear-btn" style="display:none" onclick="libConfirmClear()">Clear All</button>
+      <button class="lb lb-primary" onclick="showView('converter')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Convert New
       </button>
     </div>
   </div>
-
-  <div id="lib-content">
-    <!-- Populated dynamically -->
-  </div>
+  <div id="lib-content"></div>
 </div>
 </div>
 
-<!-- ─── Modal ─── -->
-<div class="modal-backdrop" id="modal-backdrop">
+<!-- Modal -->
+<div class="modal-bg" id="modal-bg">
   <div class="modal">
-    <h3 id="modal-title">Delete file?</h3>
-    <p id="modal-body">This action cannot be undone.</p>
-    <div class="modal-actions">
-      <button class="lib-btn lib-btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="lib-btn lib-btn-danger" id="modal-confirm-btn" onclick="modalConfirm()">Delete</button>
+    <h3 id="modal-title">Confirm</h3>
+    <p id="modal-body"></p>
+    <div class="modal-btns">
+      <button class="lb lb-ghost lb-sm" onclick="closeModal()">Cancel</button>
+      <button class="lb lb-danger lb-sm" id="modal-confirm" onclick="modalConfirm()">Delete</button>
     </div>
   </div>
 </div>
 
-<!-- ─── Toast ─── -->
 <div id="toast-container"></div>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-const { PDFDocument } = PDFLib;
+// ═══════ STATE ═══════
+let fileId = null, totalPages = 0, currentMode = 'all', selectedPages = new Set();
+let jobId = null, pollTimer = null, lastLogIdx = 0;
+let modalAction = null;
 
-// ═══════════════════════════════════════════════════════════════════
-// IndexedDB Library Store
-// ═══════════════════════════════════════════════════════════════════
-
-const DB_NAME = 'ScanLensLibrary';
-const DB_VERSION = 1;
-const STORE_NAME = 'files';
-
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+// ═══════ VIEW SWITCHING ═══════
+function showView(v) {
+  document.getElementById('view-converter').classList.toggle('active', v === 'converter');
+  document.getElementById('view-library').classList.toggle('active', v === 'library');
+  document.getElementById('nav-converter').classList.toggle('active', v === 'converter');
+  document.getElementById('nav-library').classList.toggle('active', v === 'library');
+  if (v === 'library') renderLibrary();
 }
 
-async function libSave(record) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(record);
-    tx.oncomplete = () => { resolve(); updateLibraryBadge(); };
-    tx.onerror = () => reject(tx.error);
-  });
-}
+// ═══════ DROPZONE ═══════
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') uploadFile(f);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) uploadFile(e.target.files[0]); });
 
-async function libGetAll() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).getAll();
-    req.onsuccess = () => {
-      const items = req.result || [];
-      items.sort((a, b) => b.timestamp - a.timestamp);
-      resolve(items);
-    };
-    req.onerror = () => reject(req.error);
-  });
-}
+document.getElementById('fileRemove').addEventListener('click', () => {
+  fileId = null; totalPages = 0; selectedPages.clear();
+  document.getElementById('fileInfo').classList.remove('visible');
+  document.getElementById('pageRangeSection').classList.remove('visible');
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('startBtn').textContent = 'Select a PDF to begin';
+  document.getElementById('resultSection').classList.remove('visible');
+  fileInput.value = '';
+});
 
-async function libDelete(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).delete(id);
-    tx.oncomplete = () => { resolve(); updateLibraryBadge(); };
-    tx.onerror = () => reject(tx.error);
-  });
-}
+// ═══════ UPLOAD ═══════
+async function uploadFile(f) {
+  document.getElementById('fileName').textContent = f.name;
+  document.getElementById('fileMeta').textContent = 'Uploading...';
+  document.getElementById('fileInfo').classList.add('visible');
+  document.getElementById('resultSection').classList.remove('visible');
 
-async function libClear() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).clear();
-    tx.oncomplete = () => { resolve(); updateLibraryBadge(); };
-    tx.onerror = () => reject(tx.error);
-  });
-}
+  const form = new FormData();
+  form.append('file', f);
 
-async function libCount() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).count();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function updateLibraryBadge() {
-  const count = await libCount();
-  const badge = document.getElementById('nav-library-badge');
-  if (count > 0) {
-    badge.textContent = count;
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    fileId = data.file_id;
+    totalPages = data.page_count;
+    document.getElementById('fileMeta').textContent =
+      `${data.size_label} · ${totalPages} page${totalPages > 1 ? 's' : ''}`;
+    setupPageRange();
+    document.getElementById('pageRangeSection').classList.add('visible');
+    setMode('all');
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('startBtn').textContent = `Start OCR — ${totalPages} page${totalPages > 1 ? 's' : ''}`;
+  } catch (err) {
+    document.getElementById('fileMeta').textContent = 'Upload failed: ' + err.message;
+    document.getElementById('startBtn').disabled = true;
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// View Switching
-// ═══════════════════════════════════════════════════════════════════
+// ═══════ PAGE RANGE ═══════
+function setupPageRange() {
+  const rf = document.getElementById('rangeFrom');
+  const rt = document.getElementById('rangeTo');
+  rf.max = totalPages; rt.max = totalPages;
+  rf.value = ''; rt.value = ''; rt.placeholder = totalPages;
+  document.getElementById('customRange').value = '';
+  document.getElementById('rangeError').classList.remove('visible');
 
-function showView(view) {
-  document.getElementById('view-converter').classList.toggle('active', view === 'converter');
-  document.getElementById('view-library').classList.toggle('active', view === 'library');
-  document.getElementById('nav-converter').classList.toggle('active', view === 'converter');
-  document.getElementById('nav-library').classList.toggle('active', view === 'library');
-  if (view === 'library') renderLibrary();
+  const qs = document.getElementById('quickSelect');
+  qs.innerHTML = '';
+  if (totalPages > 5) { addQBtn('First 5', () => applyQuick(1, 5)); addQBtn('First 10', () => applyQuick(1, Math.min(10, totalPages))); }
+  if (totalPages > 10) { addQBtn('First half', () => applyQuick(1, Math.ceil(totalPages/2))); addQBtn('Last half', () => applyQuick(Math.ceil(totalPages/2)+1, totalPages)); }
+  if (totalPages > 2) {
+    addQBtn('Odd', () => { switchMode('custom'); document.getElementById('customRange').value = Array.from({length:totalPages},(_,i)=>i+1).filter(n=>n%2).join(', '); parseUpdate(); });
+    addQBtn('Even', () => { switchMode('custom'); document.getElementById('customRange').value = Array.from({length:totalPages},(_,i)=>i+1).filter(n=>!(n%2)).join(', '); parseUpdate(); });
+  }
+
+  const pg = document.getElementById('pageGrid');
+  pg.innerHTML = '';
+  for (let i = 1; i <= totalPages; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'pg-cell selected';
+    cell.dataset.page = i;
+    cell.innerHTML = `<span class="num">${i}</span>`;
+    cell.addEventListener('click', () => toggleCell(cell, i));
+    pg.appendChild(cell);
+  }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Library Rendering
-// ═══════════════════════════════════════════════════════════════════
+function addQBtn(label, fn) {
+  const b = document.createElement('button');
+  b.className = 'q-btn'; b.textContent = label;
+  b.addEventListener('click', fn);
+  document.getElementById('quickSelect').appendChild(b);
+}
+function applyQuick(from, to) { switchMode('range'); document.getElementById('rangeFrom').value = from; document.getElementById('rangeTo').value = to; parseUpdate(); }
+function switchMode(m) { document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m)); setMode(m); }
 
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => { document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active')); tab.classList.add('active'); setMode(tab.dataset.mode); });
+});
+
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('rangeInputGroup').classList.remove('visible');
+  document.getElementById('customInputGroup').classList.remove('visible');
+  document.getElementById('pageGridWrapper').classList.remove('visible');
+  const hint = document.getElementById('rangeHint');
+  document.getElementById('rangeError').classList.remove('visible');
+
+  if (m === 'all') { selectedPages = new Set(Array.from({length:totalPages},(_,i)=>i+1)); hint.textContent = `All ${totalPages} pages`; syncGrid(); }
+  else if (m === 'range') { document.getElementById('rangeInputGroup').classList.add('visible'); hint.textContent = 'Enter start and end page'; parseUpdate(); }
+  else if (m === 'custom') { document.getElementById('customInputGroup').classList.add('visible'); hint.textContent = 'Commas and dashes: 1, 3, 5-8'; parseUpdate(); }
+  else if (m === 'pick') { document.getElementById('pageGridWrapper').classList.add('visible'); hint.textContent = 'Click to toggle pages'; }
+  updateBadge(); updateStartBtn();
+}
+
+document.getElementById('rangeFrom').addEventListener('input', parseUpdate);
+document.getElementById('rangeTo').addEventListener('input', parseUpdate);
+document.getElementById('customRange').addEventListener('input', parseUpdate);
+
+function parseUpdate() {
+  document.getElementById('rangeError').classList.remove('visible');
+  if (currentMode === 'range') {
+    const from = parseInt(document.getElementById('rangeFrom').value) || 1;
+    const to = parseInt(document.getElementById('rangeTo').value) || totalPages;
+    if (from < 1 || from > totalPages || to < 1 || to > totalPages) { showRangeErr(`Pages must be 1–${totalPages}`); return; }
+    if (from > to) { showRangeErr('Start must be ≤ end'); return; }
+    selectedPages = new Set(); for (let i = from; i <= to; i++) selectedPages.add(i);
+  } else if (currentMode === 'custom') {
+    const val = document.getElementById('customRange').value.trim();
+    if (!val) { selectedPages = new Set(Array.from({length:totalPages},(_,i)=>i+1)); updateBadge(); updateStartBtn(); syncGrid(); return; }
+    try { selectedPages = parseCustom(val); } catch(e) { showRangeErr(e.message); return; }
+  }
+  syncGrid(); updateBadge(); updateStartBtn();
+}
+
+function parseCustom(str) {
+  const pages = new Set();
+  for (const part of str.split(',').map(s => s.trim()).filter(Boolean)) {
+    if (part.includes('-')) {
+      const [a, b] = part.split('-').map(s => parseInt(s.trim()));
+      if (isNaN(a) || isNaN(b)) throw new Error(`Invalid: "${part}"`);
+      if (a < 1 || b > totalPages) throw new Error(`Pages 1–${totalPages}`);
+      if (a > b) throw new Error(`${a} > ${b}`);
+      for (let i = a; i <= b; i++) pages.add(i);
+    } else {
+      const n = parseInt(part);
+      if (isNaN(n)) throw new Error(`Invalid: "${part}"`);
+      if (n < 1 || n > totalPages) throw new Error(`Page ${n} out of range`);
+      pages.add(n);
+    }
+  } return pages;
+}
+
+function showRangeErr(msg) { const el = document.getElementById('rangeError'); el.textContent = msg; el.classList.add('visible'); }
+function toggleCell(cell, n) {
+  if (currentMode !== 'pick') switchMode('pick');
+  if (selectedPages.has(n)) { selectedPages.delete(n); cell.classList.remove('selected'); }
+  else { selectedPages.add(n); cell.classList.add('selected'); }
+  updateBadge(); updateStartBtn();
+}
+function syncGrid() { document.querySelectorAll('.pg-cell').forEach(c => c.classList.toggle('selected', selectedPages.has(parseInt(c.dataset.page)))); }
+function updateBadge() { const n = selectedPages.size; document.getElementById('pageCountBadge').textContent = `${n} page${n !== 1 ? 's' : ''}`; }
+function updateStartBtn() {
+  const n = selectedPages.size, btn = document.getElementById('startBtn');
+  if (n === 0) { btn.disabled = true; btn.textContent = 'Select at least one page'; }
+  else { btn.disabled = false; btn.textContent = n === totalPages ? `Start OCR — All ${totalPages} pages` : `Start OCR — ${n} of ${totalPages} pages`; }
+}
+
+// ═══════ TOGGLE ═══════
+document.getElementById('enhanceToggle').addEventListener('click', function() {
+  this.classList.toggle('on');
+  document.getElementById('enhanceLabel').textContent = this.classList.contains('on') ? 'ON' : 'OFF';
+});
+
+// ═══════ OCR JOB ═══════
+document.getElementById('startBtn').addEventListener('click', startOCR);
+document.getElementById('cancelBtn').addEventListener('click', cancelOCR);
+
+async function startOCR() {
+  if (!fileId || selectedPages.size === 0) return;
+  const startBtn = document.getElementById('startBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
+  startBtn.disabled = true; startBtn.textContent = 'Processing...';
+  cancelBtn.classList.add('visible');
+  document.getElementById('progressSection').classList.add('visible');
+  document.getElementById('resultSection').classList.remove('visible');
+  document.getElementById('logArea').innerHTML = '';
+  lastLogIdx = 0;
+
+  try {
+    const res = await fetch('/api/ocr/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        file_id: fileId,
+        lang: document.getElementById('langMode').value,
+        dpi: parseInt(document.getElementById('dpiMode').value),
+        enhance: document.getElementById('enhanceToggle').classList.contains('on'),
+        pages: [...selectedPages].sort((a, b) => a - b),
+        filename: document.getElementById('fileName').textContent,
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    jobId = data.job_id;
+    pollTimer = setInterval(pollStatus, 800);
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    startBtn.textContent = 'Start OCR'; startBtn.disabled = false;
+    cancelBtn.classList.remove('visible');
+  }
+}
+
+async function pollStatus() {
+  if (!jobId) return;
+  try {
+    const res = await fetch(`/api/ocr/status/${jobId}`);
+    const data = await res.json();
+    if (data.error) { clearInterval(pollTimer); return; }
+
+    // Update progress
+    document.getElementById('progressBar').style.width = data.progress + '%';
+    document.getElementById('progressPct').textContent = Math.round(data.progress) + '%';
+    document.getElementById('progressStatus').textContent = data.detail || '';
+    document.getElementById('progressDetail').textContent = data.detail || '';
+    document.getElementById('progressEta').textContent = data.eta || '';
+
+    // Update logs
+    const logArea = document.getElementById('logArea');
+    const logs = data.logs || [];
+    for (let i = lastLogIdx; i < logs.length; i++) {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + (logs[i].level || '');
+      entry.innerHTML = `<span class="time">${logs[i].time}</span>${logs[i].msg}`;
+      logArea.appendChild(entry);
+    }
+    lastLogIdx = logs.length;
+    logArea.scrollTop = logArea.scrollHeight;
+
+    // Check completion
+    if (data.status === 'done' || data.status === 'error' || data.status === 'cancelled') {
+      clearInterval(pollTimer);
+      document.getElementById('startBtn').textContent = 'Start OCR';
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('cancelBtn').classList.remove('visible');
+
+      if (data.status === 'done' && data.result) {
+        const r = data.result;
+        const summary = `${r.page_count} of ${r.total_pages} pages OCR'd · ${r.total_time}s · Avg confidence ${r.avg_confidence}% · <span class="lang-badge">${r.lang}</span>` +
+          (r.cancelled ? '<br><span style="color:var(--warn)">Processing was cancelled early</span>' : '') +
+          `<br><span style="font-size:10px;color:var(--text-dim);margin-top:3px;display:inline-block;">Text layer embedded — searchable and copy-pasteable · Saved to library</span>`;
+        document.getElementById('resultSummary').innerHTML = summary;
+        document.getElementById('downloadBtn').href = `/api/download/${r.lib_id}`;
+        document.getElementById('downloadBtn').download = r.ocr_name;
+        document.getElementById('resultSection').classList.add('visible');
+        updateLibBadge();
+      } else if (data.status === 'error') {
+        showToast('OCR failed: ' + (data.error || 'Unknown error'), 'error');
+      }
+    }
+  } catch (err) {
+    console.error('Poll error:', err);
+  }
+}
+
+async function cancelOCR() {
+  if (!jobId) return;
+  try { await fetch(`/api/ocr/cancel/${jobId}`, { method: 'POST' }); } catch(e) {}
+  document.getElementById('cancelBtn').classList.remove('visible');
+}
+
+// ═══════ LIBRARY ═══════
 async function renderLibrary() {
   const container = document.getElementById('lib-content');
   const countEl = document.getElementById('lib-count');
-  const items = await libGetAll();
+  const clearBtn = document.getElementById('lib-clear-btn');
 
-  if (items.length === 0) {
-    countEl.textContent = '';
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">📄</div>
-        <h2>No files yet</h2>
-        <p>Convert a scanned PDF to get started. Your OCR results will appear here.</p>
-        <button class="lib-btn lib-btn-primary" onclick="showView('converter')">Convert a file</button>
-      </div>`;
-    return;
-  }
+  try {
+    const res = await fetch('/api/library');
+    const items = await res.json();
 
-  countEl.textContent = `${items.length} file${items.length !== 1 ? 's' : ''}`;
+    if (items.length === 0) {
+      countEl.textContent = '';
+      clearBtn.style.display = 'none';
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="e-icon">📄</div>
+          <h2>No files yet</h2>
+          <p>Convert a scanned PDF to get started.</p>
+          <button class="lb lb-primary" onclick="showView('converter')">Convert a file</button>
+        </div>`;
+      return;
+    }
 
-  let html = `
-    <div class="table-wrap">
+    countEl.textContent = `${items.length} file${items.length !== 1 ? 's' : ''}`;
+    clearBtn.style.display = 'inline-flex';
+
+    let html = `<div class="table-wrap">
       <div class="table-toolbar">
         <div class="toolbar-left">
-          <label class="select-all-wrap">
-            <input type="checkbox" id="lib-select-all" onchange="libToggleSelectAll()">
+          <label class="sel-wrap">
+            <input type="checkbox" id="lib-sel-all" onchange="libToggleAll()">
             <span>Select all</span>
           </label>
-          <span class="selection-info" id="lib-selection-info">0 selected</span>
+          <span class="sel-info" id="lib-sel-info">0 selected</span>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="lib-btn lib-btn-danger lib-btn-sm" id="lib-btn-delete-selected" style="display:none" onclick="libDeleteSelected()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
-            Delete Selected
-          </button>
-          <button class="lib-btn lib-btn-ghost lib-btn-sm" onclick="libConfirmDeleteAll()">Delete All</button>
-        </div>
+        <button class="lb lb-danger lb-sm" id="lib-del-sel" style="display:none" onclick="libDeleteSelected()">Delete Selected</button>
       </div>
       <table class="lib-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th>File</th>
-            <th>Format</th>
-            <th>Size</th>
-            <th>Date</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="lib-tbody">`;
+        <thead><tr><th></th><th>File</th><th>Format</th><th>Size</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody>`;
 
-  for (const item of items) {
-    const date = new Date(item.timestamp);
-    const dateStr = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    html += `
-          <tr class="lib-row" data-id="${item.id}">
-            <td><input type="checkbox" class="lib-row-checkbox" value="${item.id}" onchange="libUpdateSelectionUI()"></td>
-            <td>
-              <div class="book-meta">
-                <div class="book-thumb-placeholder">PDF</div>
-                <div>
-                  <div class="book-name">${escapeHtml(item.originalName)}</div>
-                  <div class="book-filename">${escapeHtml(item.ocrName)}</div>
-                </div>
-              </div>
-            </td>
-            <td><span class="badge badge-pdf">PDF</span></td>
-            <td><span class="file-size-lib">${item.sizeLabel}</span></td>
-            <td><span class="date-cell">${dateStr}<br>${timeStr}</span></td>
-            <td>
-              <div class="row-actions">
-                <button class="lib-btn lib-btn-ghost lib-btn-sm" onclick="libDownloadOne('${item.id}')" title="Download">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Download
-                </button>
-                <button class="lib-btn lib-btn-danger lib-btn-sm" style="padding:6px 8px;" onclick="libConfirmDeleteOne('${item.id}','${escapeHtml(item.originalName)}')" title="Delete">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
-                </button>
-              </div>
-            </td>
-          </tr>`;
-  }
-
-  html += `</tbody></table></div>`;
-  container.innerHTML = html;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-// ─── Library selection ───
-
-function libGetChecked() { return [...document.querySelectorAll('.lib-row-checkbox:checked')]; }
-
-function libUpdateSelectionUI() {
-  const checked = libGetChecked();
-  const count = checked.length;
-  const info = document.getElementById('lib-selection-info');
-  const btnDel = document.getElementById('lib-btn-delete-selected');
-  const selectAll = document.getElementById('lib-select-all');
-  if (!info) return;
-  info.textContent = count + ' selected';
-  info.classList.toggle('has-selection', count > 0);
-  if (btnDel) btnDel.style.display = count > 0 ? 'inline-flex' : 'none';
-  const allBoxes = document.querySelectorAll('.lib-row-checkbox');
-  if (selectAll) {
-    selectAll.indeterminate = count > 0 && count < allBoxes.length;
-    selectAll.checked = count > 0 && count === allBoxes.length;
-  }
-  document.querySelectorAll('.lib-row').forEach(row => {
-    const cb = row.querySelector('.lib-row-checkbox');
-    row.classList.toggle('selected', cb && cb.checked);
-  });
-}
-
-function libToggleSelectAll() {
-  const selectAll = document.getElementById('lib-select-all');
-  document.querySelectorAll('.lib-row-checkbox').forEach(cb => { cb.checked = selectAll.checked; });
-  libUpdateSelectionUI();
-}
-
-// ─── Library actions ───
-
-async function libDownloadOne(id) {
-  const db = await openDB();
-  const tx = db.transaction(STORE_NAME, 'readonly');
-  const req = tx.objectStore(STORE_NAME).get(id);
-  req.onsuccess = () => {
-    const item = req.result;
-    if (!item) return;
-    const url = URL.createObjectURL(item.blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = item.ocrName;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  };
-}
-
-function libConfirmDeleteOne(id, name) {
-  openModalDialog('Delete this file?', `<strong>${name}</strong> will be permanently removed.`, async () => {
-    const row = document.querySelector(`.lib-row[data-id="${id}"]`);
-    if (row) { row.classList.add('removing'); }
-    await libDelete(id);
-    setTimeout(() => renderLibrary(), 300);
-    showToast('File deleted');
-  });
-}
-
-function libDeleteSelected() {
-  const checked = libGetChecked();
-  if (!checked.length) return;
-  const ids = checked.map(cb => cb.value);
-  const noun = ids.length === 1 ? '1 file' : ids.length + ' files';
-  openModalDialog('Delete selected?', `<strong>${noun}</strong> will be permanently removed.`, async () => {
-    for (const id of ids) {
-      const row = document.querySelector(`.lib-row[data-id="${id}"]`);
-      if (row) row.classList.add('removing');
-      await libDelete(id);
+    for (const item of items) {
+      const date = new Date(item.timestamp);
+      const dateStr = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      html += `<tr class="lib-row" data-id="${item.id}">
+        <td><input type="checkbox" class="lib-cb" value="${item.id}" onchange="libUpdateSel()"></td>
+        <td>
+          <div class="book-meta">
+            <div class="book-thumb">PDF</div>
+            <div>
+              <div class="book-name">${esc(item.original_name)}</div>
+              <div class="book-sub">${esc(item.ocr_name)}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="badge badge-pdf">PDF</span></td>
+        <td><span class="file-sz">${item.size_label}</span></td>
+        <td><span class="date-cell">${dateStr}</span></td>
+        <td>
+          <div class="row-actions">
+            <a class="lb lb-ghost lb-sm" href="/api/download/${item.id}" download="${esc(item.ocr_name)}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download
+            </a>
+            <button class="lb lb-danger lb-sm" onclick="libConfirmDelete('${item.id}','${esc(item.original_name)}')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>`;
     }
-    setTimeout(() => renderLibrary(), 300);
+
+    html += `</tbody></table></div>`;
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state"><h2>Error loading library</h2><p>${err.message}</p></div>`;
+  }
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function libGetChecked() { return [...document.querySelectorAll('.lib-cb:checked')]; }
+function libUpdateSel() {
+  const checked = libGetChecked();
+  const info = document.getElementById('lib-sel-info');
+  const btn = document.getElementById('lib-del-sel');
+  if (info) { info.textContent = checked.length + ' selected'; info.classList.toggle('has', checked.length > 0); }
+  if (btn) btn.style.display = checked.length > 0 ? 'inline-flex' : 'none';
+  document.querySelectorAll('.lib-row').forEach(r => {
+    const cb = r.querySelector('.lib-cb');
+    r.classList.toggle('selected', cb && cb.checked);
+  });
+}
+function libToggleAll() {
+  const all = document.getElementById('lib-sel-all');
+  document.querySelectorAll('.lib-cb').forEach(cb => cb.checked = all.checked);
+  libUpdateSel();
+}
+
+function libConfirmDelete(id, name) {
+  openModal('Delete this file?', `<strong>${name}</strong> will be permanently removed.`, async () => {
+    await fetch(`/api/library/${id}`, { method: 'DELETE' });
+    showToast('File deleted');
+    renderLibrary(); updateLibBadge();
+  });
+}
+function libDeleteSelected() {
+  const ids = libGetChecked().map(cb => cb.value);
+  if (!ids.length) return;
+  openModal('Delete selected?', `<strong>${ids.length} file${ids.length !== 1 ? 's' : ''}</strong> will be removed.`, async () => {
+    for (const id of ids) await fetch(`/api/library/${id}`, { method: 'DELETE' });
     showToast(`Deleted ${ids.length} file${ids.length !== 1 ? 's' : ''}`);
+    renderLibrary(); updateLibBadge();
+  });
+}
+function libConfirmClear() {
+  openModal('Clear entire library?', 'All files will be permanently deleted.', async () => {
+    await fetch('/api/library/clear', { method: 'POST' });
+    showToast('Library cleared');
+    renderLibrary(); updateLibBadge();
   });
 }
 
-function libConfirmDeleteAll() {
-  const rows = document.querySelectorAll('.lib-row');
-  if (!rows.length) return;
-  openModalDialog('Delete all files?',
-    `All <strong>${rows.length}</strong> file${rows.length !== 1 ? 's' : ''} in your library will be permanently removed.`,
-    async () => {
-      await libClear();
-      renderLibrary();
-      showToast('All files deleted');
-    });
+async function updateLibBadge() {
+  try {
+    const res = await fetch('/api/library');
+    const items = await res.json();
+    const badge = document.getElementById('nav-badge');
+    if (items.length > 0) { badge.textContent = items.length; badge.classList.add('visible'); }
+    else { badge.classList.remove('visible'); }
+  } catch(e) {}
 }
 
-// ─── Modal & Toast ───
-
-let modalAction = null;
-function openModalDialog(title, body, action) {
+// ═══════ MODAL ═══════
+function openModal(title, body, action) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = body;
   modalAction = action;
-  document.getElementById('modal-backdrop').classList.add('open');
+  document.getElementById('modal-bg').classList.add('open');
 }
-function closeModal() { document.getElementById('modal-backdrop').classList.remove('open'); modalAction = null; }
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); modalAction = null; }
 function modalConfirm() { closeModal(); if (modalAction) modalAction(); }
-document.getElementById('modal-backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById('modal-bg').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 
-function showToast(message, type = 'success') {
-  const container = document.getElementById('toast-container');
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.innerHTML = (type === 'success' ? '✓ ' : '✗ ') + message;
-  container.appendChild(toast);
-  setTimeout(() => toast.remove(), 3500);
+// ═══════ TOAST ═══════
+function showToast(msg, type = 'ok') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type === 'error' ? 'err' : 'ok'}`;
+  t.textContent = (type === 'error' ? '✗ ' : '✓ ') + msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Original Converter Logic
-// ═══════════════════════════════════════════════════════════════════
-
-const LANG_LABELS = {
-  'eng':'English','chi_tra':'Traditional Chinese (Horizontal)','chi_tra_vert':'Traditional Chinese (Vertical)',
-  'chi_sim':'Simplified Chinese (Horizontal)','chi_sim_vert':'Simplified Chinese (Vertical)',
-  'chi_tra+chi_sim':'Chinese Mixed','chi_tra_vert+chi_sim_vert':'Chinese Vertical Mixed',
-  'jpn':'Japanese (Horizontal)','jpn_vert':'Japanese (Vertical)','kor':'Korean',
-  'chi_tra+chi_sim+eng':'Chinese + English','jpn+kor+eng':'Japanese + Korean + English',
-  'chi_tra+chi_tra_vert+chi_sim+chi_sim_vert+jpn+jpn_vert+kor+eng':'All Languages'
-};
-function getLangLabel(lang) { return LANG_LABELS[lang] || lang; }
-
-const dropzone=document.getElementById('dropzone'),fileInput=document.getElementById('fileInput'),
-  fileInfo=document.getElementById('fileInfo'),fileName=document.getElementById('fileName'),
-  fileMeta=document.getElementById('fileMeta'),fileRemove=document.getElementById('fileRemove'),
-  pageRangeSection=document.getElementById('pageRangeSection'),pageCountBadge=document.getElementById('pageCountBadge'),
-  rangeInputGroup=document.getElementById('rangeInputGroup'),customInputGroup=document.getElementById('customInputGroup'),
-  rangeFrom=document.getElementById('rangeFrom'),rangeTo=document.getElementById('rangeTo'),
-  customRange=document.getElementById('customRange'),rangeHint=document.getElementById('rangeHint'),
-  rangeError=document.getElementById('rangeError'),quickSelect=document.getElementById('quickSelect'),
-  pageGridWrapper=document.getElementById('pageGridWrapper'),pageGrid=document.getElementById('pageGrid'),
-  langMode=document.getElementById('langMode'),dpiMode=document.getElementById('dpiMode'),
-  enhanceToggle=document.getElementById('enhanceToggle'),enhanceLabel=document.getElementById('enhanceLabel'),
-  startBtn=document.getElementById('startBtn'),cancelBtn=document.getElementById('cancelBtn'),
-  progressSection=document.getElementById('progressSection'),progressStatus=document.getElementById('progressStatus'),
-  progressPct=document.getElementById('progressPct'),progressBar=document.getElementById('progressBar'),
-  progressDetail=document.getElementById('progressDetail'),progressEta=document.getElementById('progressEta'),
-  pagePreviews=document.getElementById('pagePreviews'),logArea=document.getElementById('logArea'),
-  resultSection=document.getElementById('resultSection'),resultSummary=document.getElementById('resultSummary'),
-  downloadBtn=document.getElementById('downloadBtn');
-
-let selectedFile=null,outputBlob=null,totalPages=0,currentMode='all',selectedPages=new Set(),
-  pageThumbnails={},thumbnailAbort=false,cancelRequested=false,cachedPdfBuffer=null;
-
-function setupToggle(toggle,label){toggle.addEventListener('click',()=>{toggle.classList.toggle('active');label.textContent=toggle.classList.contains('active')?'ON':'OFF';});}
-setupToggle(enhanceToggle,enhanceLabel);
-
-dropzone.addEventListener('click',()=>fileInput.click());
-dropzone.addEventListener('dragover',e=>{e.preventDefault();dropzone.classList.add('drag-over');});
-dropzone.addEventListener('dragleave',()=>dropzone.classList.remove('drag-over'));
-dropzone.addEventListener('drop',e=>{e.preventDefault();dropzone.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f&&f.type==='application/pdf')handleFile(f);});
-fileInput.addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
-
-fileRemove.addEventListener('click',()=>{
-  selectedFile=null;totalPages=0;selectedPages.clear();pageThumbnails={};thumbnailAbort=true;cachedPdfBuffer=null;
-  fileInfo.classList.remove('visible');pageRangeSection.classList.remove('visible');
-  startBtn.disabled=true;startBtn.textContent='Select a PDF to begin';fileInput.value='';resultSection.classList.remove('visible');
-});
-
-async function handleFile(f){
-  selectedFile=f;fileName.textContent=f.name;fileMeta.textContent=formatSize(f.size)+' • Loading...';
-  fileInfo.classList.add('visible');resultSection.classList.remove('visible');
-  try{
-    cachedPdfBuffer=await f.arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:cachedPdfBuffer.slice(0)}).promise;
-    totalPages=pdf.numPages;fileMeta.textContent=`${formatSize(f.size)} • ${totalPages} page${totalPages>1?'s':''}`;
-    setupPageRange();pageRangeSection.classList.add('visible');setMode('all');
-    startBtn.disabled=false;startBtn.textContent=`Start OCR — ${totalPages} page${totalPages>1?'s':''}`;
-  }catch(err){fileMeta.textContent=formatSize(f.size)+' • Error loading PDF';startBtn.disabled=true;}
-}
-
-function formatSize(bytes){
-  if(bytes<1024)return bytes+' B';if(bytes<1024*1024)return(bytes/1024).toFixed(1)+' KB';
-  return(bytes/(1024*1024)).toFixed(1)+' MB';
-}
-
-function setupPageRange(){
-  rangeFrom.max=totalPages;rangeTo.max=totalPages;rangeFrom.value='';rangeTo.value='';rangeTo.placeholder=totalPages;
-  customRange.value='';rangeError.classList.remove('visible');quickSelect.innerHTML='';
-  if(totalPages>5){addQuickBtn('First 5',()=>applyQuick(1,5));addQuickBtn('First 10',()=>applyQuick(1,Math.min(10,totalPages)));}
-  if(totalPages>10){addQuickBtn('First half',()=>applyQuick(1,Math.ceil(totalPages/2)));addQuickBtn('Last half',()=>applyQuick(Math.ceil(totalPages/2)+1,totalPages));}
-  if(totalPages>2){
-    addQuickBtn('Odd pages',()=>{switchToMode('custom');customRange.value=Array.from({length:totalPages},(_,i)=>i+1).filter(n=>n%2).join(', ');parseAndUpdate();});
-    addQuickBtn('Even pages',()=>{switchToMode('custom');customRange.value=Array.from({length:totalPages},(_,i)=>i+1).filter(n=>!(n%2)).join(', ');parseAndUpdate();});
-  }
-  pageGrid.innerHTML='';pageThumbnails={};thumbsLoaded=false;
-  for(let i=1;i<=totalPages;i++){
-    const cell=document.createElement('div');cell.className='page-cell selected';cell.dataset.page=i;
-    cell.innerHTML=`<div class="cell-overlay"></div><span class="page-num">${i}</span><div class="cell-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
-    cell.addEventListener('click',()=>togglePageCell(cell,i));pageGrid.appendChild(cell);
-  }
-}
-
-let thumbsLoaded=false;
-async function loadThumbnailsIfNeeded(){
-  if(thumbsLoaded||!cachedPdfBuffer)return;thumbsLoaded=true;thumbnailAbort=false;
-  const pdf=await pdfjsLib.getDocument({data:cachedPdfBuffer.slice(0)}).promise;
-  for(let i=1;i<=totalPages;i++){
-    if(thumbnailAbort)break;
-    try{
-      const page=await pdf.getPage(i);const vp=page.getViewport({scale:0.15});
-      const canvas=document.createElement('canvas');canvas.width=vp.width;canvas.height=vp.height;
-      await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
-      const dataUrl=canvas.toDataURL('image/jpeg',0.4);pageThumbnails[i]=dataUrl;
-      const cell=pageGrid.querySelector(`[data-page="${i}"]`);
-      if(cell&&!cell.querySelector('img')){const img=document.createElement('img');img.src=dataUrl;cell.prepend(img);}
-      canvas.width=0;canvas.height=0;if(i%5===0)await new Promise(r=>setTimeout(r,0));
-    }catch(e){}
-  }
-}
-
-function addQuickBtn(label,fn){const btn=document.createElement('button');btn.className='quick-btn';btn.textContent=label;btn.addEventListener('click',fn);quickSelect.appendChild(btn);}
-function applyQuick(from,to){switchToMode('range');rangeFrom.value=from;rangeTo.value=to;parseAndUpdate();}
-function switchToMode(mode){document.querySelectorAll('.range-tab').forEach(t=>t.classList.toggle('active',t.dataset.mode===mode));setMode(mode);}
-
-document.querySelectorAll('.range-tab').forEach(tab=>{
-  tab.addEventListener('click',()=>{document.querySelectorAll('.range-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');setMode(tab.dataset.mode);});
-});
-
-function setMode(mode){
-  currentMode=mode;rangeInputGroup.classList.remove('visible');customInputGroup.classList.remove('visible');pageGridWrapper.classList.remove('visible');
-  rangeHint.textContent='';rangeError.classList.remove('visible');
-  if(mode==='all'){selectedPages=new Set(Array.from({length:totalPages},(_,i)=>i+1));rangeHint.textContent=`All ${totalPages} pages will be processed`;syncGridToSelection();}
-  else if(mode==='range'){rangeInputGroup.classList.add('visible');rangeHint.textContent='Enter a start and end page number';parseAndUpdate();}
-  else if(mode==='custom'){customInputGroup.classList.add('visible');rangeHint.textContent='Use commas and dashes: e.g. 1, 3, 5-8, 12';parseAndUpdate();}
-  else if(mode==='pick'){pageGridWrapper.classList.add('visible');rangeHint.textContent='Click pages to select or deselect them';loadThumbnailsIfNeeded();}
-  updateBadge();updateStartBtn();
-}
-
-rangeFrom.addEventListener('input',parseAndUpdate);rangeTo.addEventListener('input',parseAndUpdate);customRange.addEventListener('input',parseAndUpdate);
-
-function parseAndUpdate(){
-  rangeError.classList.remove('visible');rangeFrom.classList.remove('error');rangeTo.classList.remove('error');customRange.classList.remove('error');
-  if(currentMode==='range'){
-    const from=parseInt(rangeFrom.value)||1,to=parseInt(rangeTo.value)||totalPages;
-    if(from<1||from>totalPages||to<1||to>totalPages){showRangeError(`Page numbers must be between 1 and ${totalPages}`);return;}
-    if(from>to){showRangeError('Start page must be ≤ end page');return;}
-    selectedPages=new Set();for(let i=from;i<=to;i++)selectedPages.add(i);
-  }else if(currentMode==='custom'){
-    const val=customRange.value.trim();
-    if(!val){selectedPages=new Set(Array.from({length:totalPages},(_,i)=>i+1));updateBadge();updateStartBtn();syncGridToSelection();return;}
-    try{selectedPages=parseCustomRange(val);}catch(err){showRangeError(err.message);customRange.classList.add('error');return;}
-  }
-  syncGridToSelection();updateBadge();updateStartBtn();
-}
-
-function parseCustomRange(str){
-  const pages=new Set();
-  for(const part of str.split(',').map(s=>s.trim()).filter(Boolean)){
-    if(part.includes('-')){const[a,b]=part.split('-').map(s=>parseInt(s.trim()));if(isNaN(a)||isNaN(b))throw new Error(`Invalid range: "${part}"`);if(a<1||b>totalPages)throw new Error(`Pages must be 1–${totalPages}`);if(a>b)throw new Error(`Invalid range: ${a} > ${b}`);for(let i=a;i<=b;i++)pages.add(i);}
-    else{const n=parseInt(part);if(isNaN(n))throw new Error(`Invalid page: "${part}"`);if(n<1||n>totalPages)throw new Error(`Page ${n} out of range (1–${totalPages})`);pages.add(n);}
-  }return pages;
-}
-
-function showRangeError(msg){rangeError.textContent=msg;rangeError.classList.add('visible');}
-
-function togglePageCell(cell,pageNum){
-  if(currentMode!=='pick')switchToMode('pick');
-  if(selectedPages.has(pageNum)){selectedPages.delete(pageNum);cell.classList.remove('selected');}
-  else{selectedPages.add(pageNum);cell.classList.add('selected');}
-  updateBadge();updateStartBtn();
-}
-
-function syncGridToSelection(){pageGrid.querySelectorAll('.page-cell').forEach(cell=>{cell.classList.toggle('selected',selectedPages.has(parseInt(cell.dataset.page)));});}
-function updateBadge(){const n=selectedPages.size;pageCountBadge.textContent=`${n} page${n!==1?'s':''} selected`;}
-function updateStartBtn(){
-  const n=selectedPages.size;
-  if(n===0){startBtn.disabled=true;startBtn.textContent='Select at least one page';}
-  else{startBtn.disabled=false;startBtn.textContent=n===totalPages?`Start OCR — All ${totalPages} pages`:`Start OCR — ${n} of ${totalPages} pages`;}
-}
-
-function log(msg,type=''){
-  const entry=document.createElement('div');entry.className='log-entry '+type;
-  const now=new Date();const time=[now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
-  entry.innerHTML=`<span class="time">${time}</span>${msg}`;logArea.appendChild(entry);logArea.scrollTop=logArea.scrollHeight;
-}
-
-function detectLanguage(text){
-  if(!text||text.trim().length<5)return'eng';
-  let cjkCount=0,engCount=0,hangulCount=0,hiraganaCount=0,katakanaCount=0,traIndicators=0,simIndicators=0;
-  const traChars='國學數與對這經區體發聯當會從點問機關個義處應實來將過還後給讓說時種為開黨質裡類書閱讀寫說語陽陰電龍鳳鷹號';
-  const simChars='国学数与对这经区体发联当会从点问机关个义处应实来将过还后给让说时种为开党质里类书阅读写说语阳阴电龙凤鹰号';
-  for(const ch of text){
-    const code=ch.charCodeAt(0);
-    if((code>=0x4E00&&code<=0x9FFF)||(code>=0x3400&&code<=0x4DBF)){cjkCount++;if(traChars.includes(ch))traIndicators++;if(simChars.includes(ch))simIndicators++;}
-    else if(code>=0xAC00&&code<=0xD7A3){hangulCount++;}
-    else if((code>=0x1100&&code<=0x11FF)||(code>=0x3130&&code<=0x318F)){hangulCount++;}
-    else if((code>=0xA960&&code<=0xA97F)||(code>=0xD7B0&&code<=0xD7FF)){hangulCount++;}
-    else if(code>=0x3040&&code<=0x309F){hiraganaCount++;}
-    else if(code>=0x30A0&&code<=0x30FF){katakanaCount++;}
-    else if((code>=0x41&&code<=0x5A)||(code>=0x61&&code<=0x7A)){engCount++;}
-  }
-  const japaneseKanaCount=hiraganaCount+katakanaCount;const total=cjkCount+engCount+hangulCount+japaneseKanaCount;
-  if(total===0)return'eng';
-  if(hangulCount/total>0.15)return'kor';
-  if(japaneseKanaCount>0&&japaneseKanaCount/total>0.05)return'jpn';
-  if(cjkCount/total>0.25){if(traIndicators>simIndicators*1.2)return'chi_tra';if(simIndicators>traIndicators*1.2)return'chi_sim';return'chi_tra+chi_sim';}
-  return'eng';
-}
-
-const VERT_MAP={'chi_tra':'chi_tra_vert','chi_sim':'chi_sim_vert','jpn':'jpn_vert','chi_tra+chi_sim':'chi_tra_vert+chi_sim_vert'};
-
-async function autoDetectLangAndOrientation(imageDataUrl){
-  const detectWorker=await Tesseract.createWorker('eng+chi_tra+chi_sim+jpn+kor',1,{logger:()=>{}});
-  const detectResult=await detectWorker.recognize(imageDataUrl);
-  const detectedText=detectResult.data.text||'';const baseConf=detectResult.data.confidence||0;
-  await detectWorker.terminate();const baseLang=detectLanguage(detectedText);
-  log(`Initial detection: ${getLangLabel(baseLang)}, confidence ${baseConf.toFixed(1)}%`);
-  if(VERT_MAP[baseLang]&&baseConf<45){
-    log(`Low confidence (${baseConf.toFixed(1)}%) — testing vertical orientation...`);
-    const vertLang=VERT_MAP[baseLang];const vertWorker=await Tesseract.createWorker(vertLang,1,{logger:()=>{}});
-    const vertResult=await vertWorker.recognize(imageDataUrl);const vertConf=vertResult.data.confidence||0;await vertWorker.terminate();
-    log(`Vertical model confidence: ${vertConf.toFixed(1)}% vs horizontal: ${baseConf.toFixed(1)}%`);
-    if(vertConf>baseConf+8){log(`Vertical writing detected — using ${getLangLabel(vertLang)}`,'success');return vertLang;}
-  }
-  log(`Language detected: ${getLangLabel(baseLang)}`,'success');return baseLang;
-}
-
-function enhanceImage(canvas){
-  const ctx=canvas.getContext('2d');const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);const data=imageData.data;
-  const contrast=1.3,brightness=10;
-  for(let i=0;i<data.length;i+=4){
-    data[i]=Math.min(255,Math.max(0,contrast*(data[i]-128)+128+brightness));
-    data[i+1]=Math.min(255,Math.max(0,contrast*(data[i+1]-128)+128+brightness));
-    data[i+2]=Math.min(255,Math.max(0,contrast*(data[i+2]-128)+128+brightness));
-  }
-  ctx.putImageData(imageData,0,0);return canvas;
-}
-
-cancelBtn.addEventListener('click',()=>{cancelRequested=true;cancelBtn.classList.remove('visible');log('Cancellation requested — stopping...','warn');});
-
-startBtn.addEventListener('click',async()=>{if(!selectedFile||selectedPages.size===0)return;await runLocalOCR();});
-
-async function runLocalOCR(){
-  cancelRequested=false;startBtn.disabled=true;startBtn.textContent='Processing...';
-  cancelBtn.classList.add('visible');progressSection.classList.add('visible');resultSection.classList.remove('visible');
-  logArea.innerHTML='';pagePreviews.innerHTML='';progressEta.textContent='';progressBar.className='progress-bar-fill';
-
-  const targetDPI=parseInt(dpiMode.value),langSetting=langMode.value,doEnhance=enhanceToggle.classList.contains('active');
-  const ocrPages=[...selectedPages].sort((a,b)=>a-b);
-
-  log(`OCR target: ${ocrPages.length} page(s) — [${summarizePages(ocrPages)}]`);
-  log(`Settings: ${targetDPI} DPI, enhance: ${doEnhance?'ON':'OFF'}`);
-  if(ocrPages.length<totalPages)log(`Skipping ${totalPages-ocrPages.length} unselected page(s)`);
-
-  let worker=null;
-  try{
-    log('Loading PDF file...');
-    const pdf=await pdfjsLib.getDocument({data:cachedPdfBuffer.slice(0)}).promise;
-    log(`PDF loaded: ${pdf.numPages} page(s)`,'success');
-
-    for(const p of ocrPages){
-      const thumb=document.createElement('div');thumb.className='page-thumb';thumb.id=`thumb-${p}`;
-      thumb.innerHTML=`<div class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>`;
-      if(pageThumbnails[p]){const img=document.createElement('img');img.src=pageThumbnails[p];thumb.prepend(img);}
-      pagePreviews.appendChild(thumb);
-    }
-
-    updateProgress(3,'Detecting language...');let ocrLangs=langSetting;
-    if(langSetting==='auto'){
-      log('Auto-detect: rendering first page for language and orientation analysis...');
-      const detectPage=await pdf.getPage(ocrPages[0]);const detectVp=detectPage.getViewport({scale:1.0});
-      const detectCanvas=document.createElement('canvas');detectCanvas.width=detectVp.width;detectCanvas.height=detectVp.height;
-      await detectPage.render({canvasContext:detectCanvas.getContext('2d'),viewport:detectVp}).promise;
-      const detectImg=detectCanvas.toDataURL('image/jpeg',0.5);detectCanvas.width=0;detectCanvas.height=0;
-      ocrLangs=await autoDetectLangAndOrientation(detectImg);log(`Using model: ${getLangLabel(ocrLangs)}`,'success');
-    }
-
-    updateProgress(8,'Loading OCR engine...');log(`Loading language model: ${ocrLangs}`);
-    worker=await Tesseract.createWorker(ocrLangs,1,{logger:()=>{}});
-    log('OCR engine ready','success');updateProgress(15,'Starting page processing...');
-
-    const pagePdfBytes=[],pageTexts=[],detectedLangs=new Set([ocrLangs]),startTime=Date.now();
-
-    for(let idx=0;idx<ocrPages.length;idx++){
-      if(cancelRequested){log('Processing cancelled by user','warn');break;}
-      const pageNum=ocrPages[idx];const thumbEl=document.getElementById(`thumb-${pageNum}`);thumbEl.classList.add('processing');
-      updateProgress(15+idx/ocrPages.length*80,`OCR page ${pageNum} (${idx+1}/${ocrPages.length})...`);
-      if(idx>0){const elapsed=(Date.now()-startTime)/1000,perPage=elapsed/idx,remaining=perPage*(ocrPages.length-idx);progressEta.textContent=`~${Math.ceil(remaining)}s remaining (${perPage.toFixed(1)}s/page)`;}
-
-      log(`Rendering page ${pageNum} at ${targetDPI} DPI...`);
-      const page=await pdf.getPage(pageNum);const origVp=page.getViewport({scale:1});
-      const viewport=page.getViewport({scale:targetDPI/72});const canvas=document.createElement('canvas');
-      canvas.width=viewport.width;canvas.height=viewport.height;
-      await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
-
-      if(!pageThumbnails[pageNum]&&thumbEl){const tc=document.createElement('canvas');tc.width=48;tc.height=64;tc.getContext('2d').drawImage(canvas,0,0,48,64);const img=document.createElement('img');img.src=tc.toDataURL('image/jpeg',0.4);thumbEl.prepend(img);tc.width=0;tc.height=0;}
-      if(doEnhance){enhanceImage(canvas);log('  ↳ Enhancement applied');}
-
-      const imageData=canvas.toDataURL('image/jpeg',0.85);canvas.width=0;canvas.height=0;
-      log(`Running OCR on page ${pageNum}...`);
-      let text='',confidence=0,singlePagePdf=null;
-      try{const result=await worker.recognize(imageData);text=result.data.text||'';confidence=result.data.confidence||0;const pdfOutput=await worker.getPDF('ScanLens OCR');singlePagePdf=new Uint8Array(pdfOutput.data);}
-      catch(err){log(`OCR error on page ${pageNum}: ${err.message}`,'error');}
-
-      log(`Page ${pageNum}: ${text.length} chars, confidence ${confidence.toFixed(1)}%, lang: ${getLangLabel(ocrLangs)}`,confidence>50?'success':'warn');
-      pagePdfBytes.push({pageNum,pdfBytes:singlePagePdf,imageData,text,confidence,lang:ocrLangs,originalWidth:origVp.width,originalHeight:origVp.height});
-      pageTexts.push({text,confidence});
-      thumbEl.classList.remove('processing');thumbEl.classList.add('done');
-      updateProgress(15+(idx+1)/ocrPages.length*80,`Completed page ${pageNum}`);
-      await new Promise(r=>setTimeout(r,10));
-    }
-
-    if(pagePdfBytes.length===0)throw new Error('No pages were processed');
-    log(`Merging ${pagePdfBytes.length} page(s) into final PDF...`);updateProgress(93,'Merging pages...');
-
-    const mergedPdf=await PDFDocument.create();
-    for(const entry of pagePdfBytes){
-      if(entry.pdfBytes){try{const srcDoc=await PDFDocument.load(entry.pdfBytes);const[copiedPage]=await mergedPdf.copyPages(srcDoc,[0]);mergedPdf.addPage(copiedPage);continue;}catch(err){log(`  ↳ Merge error for page ${entry.pageNum}, using image fallback`,'warn');}}
-      const base64=entry.imageData.split(',')[1];const imgBytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
-      const embeddedImg=entry.imageData.startsWith('data:image/jpeg')?await mergedPdf.embedJpg(imgBytes):await mergedPdf.embedPng(imgBytes);
-      const imgPage=mergedPdf.addPage([entry.originalWidth,entry.originalHeight]);
-      imgPage.drawImage(embeddedImg,{x:0,y:0,width:entry.originalWidth,height:entry.originalHeight});
-    }
-
-    updateProgress(97,'Generating output PDF...');const mergedBytes=await mergedPdf.save();
-    outputBlob=new Blob([mergedBytes],{type:'application/pdf'});
-    await worker.terminate();worker=null;
-
-    const totalTime=((Date.now()-startTime)/1000).toFixed(1);
-    updateProgress(100,'Done!');progressEta.textContent='';
-    log(`Done! ${pagePdfBytes.length} page(s), ${formatSize(mergedBytes.length)}, ${totalTime}s total`,'success');
-
-    // ─── Save to Library ───
-    const ocrFileName = selectedFile.name.replace(/\.pdf$/i, '') + '_OCR.pdf';
-    const libRecord = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      originalName: selectedFile.name,
-      ocrName: ocrFileName,
-      sizeLabel: formatSize(mergedBytes.length),
-      sizeBytes: mergedBytes.length,
-      pageCount: pagePdfBytes.length,
-      timestamp: Date.now(),
-      blob: outputBlob,
-    };
-    try {
-      await libSave(libRecord);
-      log('Saved to library','success');
-    } catch (e) {
-      log('Could not save to library: ' + e.message, 'warn');
-    }
-
-    const langBadges=[...detectedLangs].map(l=>`<span class="lang-badge">${getLangLabel(l)}</span>`).join(' ');
-    const ocrResults=pageTexts.filter(r=>r.confidence>0);
-    const avgConf=ocrResults.length>0?(ocrResults.reduce((s,p)=>s+p.confidence,0)/ocrResults.length).toFixed(1):'—';
-    const processedPages=pagePdfBytes.map(p=>p.pageNum);
-    const pageDesc=processedPages.length===totalPages?`All ${processedPages.length} pages OCR'd`:`${processedPages.length} of ${totalPages} pages OCR'd — [${summarizePages(processedPages)}]`;
-    const cancelNote=cancelRequested?'<br><span style="color:var(--warning);">Processing was cancelled early</span>':'';
-
-    resultSummary.innerHTML=`${pageDesc} • ${totalTime}s • Avg. confidence ${avgConf}% • ${langBadges}${cancelNote}
-      <br><span style="font-size:11px;color:var(--text-dim);margin-top:4px;display:inline-block;">Text layer embedded — searchable and copy-pasteable • Saved to library</span>`;
-    resultSection.classList.add('visible');
-  }catch(err){
-    if(!cancelRequested){log(`Fatal error: ${err.message}`,'error');console.error(err);}
-    updateProgress(0,cancelRequested?'Cancelled':'Error occurred');
-  }finally{
-    if(worker){try{await worker.terminate();}catch(e){}}
-    startBtn.textContent='Start OCR Processing';startBtn.disabled=false;cancelBtn.classList.remove('visible');cancelRequested=false;
-  }
-}
-
-function summarizePages(pages){
-  if(pages.length===0)return'';if(pages.length<=6)return pages.join(', ');
-  const ranges=[];let start=pages[0],end=pages[0];
-  for(let i=1;i<pages.length;i++){if(pages[i]===end+1){end=pages[i];}else{ranges.push(start===end?`${start}`:`${start}-${end}`);start=end=pages[i];}}
-  ranges.push(start===end?`${start}`:`${start}-${end}`);return ranges.join(', ');
-}
-
-function updateProgress(pct,detail){progressBar.style.width=pct+'%';progressPct.textContent=Math.round(pct)+'%';if(detail){progressStatus.textContent=detail;progressDetail.textContent=detail;}}
-
-downloadBtn.addEventListener('click',()=>{
-  if(!outputBlob)return;const url=URL.createObjectURL(outputBlob);const a=document.createElement('a');
-  a.href=url;a.download=selectedFile.name.replace(/\.pdf$/i,'')+'_OCR.pdf';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-});
-
-// Init: update library badge on load
-updateLibraryBadge();
+// Init
+updateLibBadge();
 </script>
 </body>
 </html>
