@@ -1007,17 +1007,16 @@ async function startOCR() {
   lastLogIdx = 0;
 
   try {
+    const ocrForm = new FormData();
+    ocrForm.append('file_id', fileId);
+    ocrForm.append('lang', document.getElementById('langMode').value);
+    ocrForm.append('dpi', parseInt(document.getElementById('dpiMode').value).toString());
+    ocrForm.append('enhance', document.getElementById('enhanceToggle').classList.contains('on') ? '1' : '0');
+    ocrForm.append('pages', JSON.stringify([...selectedPages].sort((a, b) => a - b)));
+    ocrForm.append('filename', document.getElementById('fileName').textContent);
     const res = await fetch('/api/ocr/start', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        file_id: fileId,
-        lang: document.getElementById('langMode').value,
-        dpi: parseInt(document.getElementById('dpiMode').value),
-        enhance: document.getElementById('enhanceToggle').classList.contains('on'),
-        pages: [...selectedPages].sort((a, b) => a - b),
-        filename: document.getElementById('fileName').textContent,
-      })
+      body: ocrForm,
     });
     if (!res.ok) {
       let msg = `Server error (${res.status})`;
