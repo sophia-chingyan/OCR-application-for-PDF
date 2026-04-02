@@ -405,6 +405,12 @@ def request_entity_too_large(error):
     return jsonify({"error": "File too large (max 100 MB)"}), 413
 
 
+@app.errorhandler(Exception)
+def handle_exception(error):
+    code = getattr(error, "code", 500)
+    return jsonify({"error": str(error)}), code
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -448,7 +454,7 @@ def upload_pdf():
 @app.route("/api/upload/init", methods=["POST"])
 def upload_init():
     """Initialize a chunked upload session."""
-    data = request.json or {}
+    data = request.get_json(force=True, silent=True) or {}
     filename = data.get("filename", "")
     total_size = data.get("size", 0)
 
@@ -500,7 +506,7 @@ def upload_chunk():
 @app.route("/api/upload/complete", methods=["POST"])
 def upload_complete():
     """Assemble chunks into a final PDF and return file info."""
-    data = request.json or {}
+    data = request.get_json(force=True, silent=True) or {}
     upload_id = data.get("upload_id")
 
     if not upload_id or upload_id not in uploads:
@@ -545,7 +551,7 @@ def upload_complete():
 @app.route("/api/ocr/start", methods=["POST"])
 def start_ocr():
     """Start an OCR job."""
-    data = request.json
+    data = request.get_json(force=True, silent=True) or {}
     file_id = data.get("file_id")
     if not file_id:
         return jsonify({"error": "Missing file_id"}), 400
