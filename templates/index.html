@@ -730,14 +730,23 @@ function showView(v) {
 // ═══════ DROPZONE ═══════
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
-dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('click', (e) => { if (e.target !== fileInput) fileInput.click(); });
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
 dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
 dropzone.addEventListener('drop', e => {
   e.preventDefault(); dropzone.classList.remove('drag-over');
   if (uploading) return;
   const f = e.dataTransfer.files[0];
-  if (f && f.type === 'application/pdf') uploadFile(f);
+  if (!f) return;
+  if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
+    uploadFile(f);
+  } else {
+    document.getElementById('fileName').textContent = f.name;
+    document.getElementById('fileMeta').textContent = 'Only PDF files are supported';
+    document.getElementById('fileInfo').classList.add('visible');
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('startBtn').textContent = 'Select a PDF to begin';
+  }
 });
 fileInput.addEventListener('change', e => { if (!uploading && e.target.files[0]) uploadFile(e.target.files[0]); });
 
@@ -786,7 +795,9 @@ function uploadFile(f) {
   xhr.upload.addEventListener('progress', function(e) {
     if (e.lengthComputable) {
       const pct = Math.round((e.loaded / e.total) * 100);
-      document.getElementById('fileMeta').textContent = `Uploading… ${pct}%`;
+      document.getElementById('fileMeta').textContent = pct < 100
+        ? `Uploading… ${pct}%`
+        : 'Processing file…';
     }
   });
 
@@ -999,6 +1010,11 @@ async function startOCR() {
         filename: document.getElementById('fileName').textContent,
       })
     });
+    if (!res.ok) {
+      let msg = `Server error (${res.status})`;
+      try { const d = await res.json(); if (d.error) msg = d.error; } catch(e) {}
+      throw new Error(msg);
+    }
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     jobId = data.job_id;
@@ -1007,15 +1023,29 @@ async function startOCR() {
     showToast('Error: ' + err.message, 'error');
     startBtn.textContent = 'Start OCR'; startBtn.disabled = false;
     cancelBtn.classList.remove('visible');
+    document.getElementById('progressSection').classList.remove('visible');
   }
 }
+
+let pollErrorCount = 0;
+const MAX_POLL_ERRORS = 10;
 
 async function pollStatus() {
   if (!jobId) return;
   try {
     const res = await fetch(`/api/ocr/status/${jobId}`);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
-    if (data.error) { clearInterval(pollTimer); return; }
+    if (data.error) {
+      clearInterval(pollTimer);
+      showToast('OCR error: ' + data.error, 'error');
+      document.getElementById('startBtn').textContent = 'Start OCR';
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('cancelBtn').classList.remove('visible');
+      return;
+    }
+
+    pollErrorCount = 0;
 
     // Update progress
     document.getElementById('progressBar').style.width = data.progress + '%';
@@ -1058,7 +1088,15 @@ async function pollStatus() {
       }
     }
   } catch (err) {
+    pollErrorCount++;
     console.error('Poll error:', err);
+    if (pollErrorCount >= MAX_POLL_ERRORS) {
+      clearInterval(pollTimer);
+      showToast('Lost connection to server. Please try again.', 'error');
+      document.getElementById('startBtn').textContent = 'Start OCR';
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('cancelBtn').classList.remove('visible');
+    }
   }
 }
 
