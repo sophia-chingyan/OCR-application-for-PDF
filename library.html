@@ -885,13 +885,12 @@ document.getElementById('deleteConfirmBtn').addEventListener('click', async (e) 
   deleteTargetName = '';
 
   try {
-    await deleteFromServer(idToDelete);
-    // Remove from local array
+    const result = await deleteFromServer(idToDelete);
     library = library.filter(f => f.id !== idToDelete);
     showToast(`Deleted "${nameToDelete}"`, 'success');
   } catch (e) {
     console.error('Delete error:', e);
-    showToast('Error deleting file', 'error');
+    showToast('Delete failed: ' + e.message, 'error');
   }
   renderAll();
 });

@@ -1265,7 +1265,7 @@ function openModal(title, body, action) {
   document.getElementById('modal-bg').classList.add('open');
 }
 function closeModal() { document.getElementById('modal-bg').classList.remove('open'); modalAction = null; }
-function modalConfirm() { closeModal(); if (modalAction) modalAction(); }
+function modalConfirm() { const action = modalAction; closeModal(); if (action) action(); }
 document.getElementById('modal-bg').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 
 // ═══════ TOAST ═══════
