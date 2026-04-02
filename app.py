@@ -610,53 +610,53 @@ def cancel_ocr(job_id):
     return jsonify({"ok": True})
 
 
-@app.route("/api/library")
-def get_library():
-    """Get all library entries."""
-    items = sorted(library.values(), key=lambda x: x["timestamp"], reverse=True)
-    return jsonify(items)
+@app.route("/api/library", methods=["GET", "POST"])
+def library_endpoint():
+    """Unified library endpoint.
 
+    GET              → list all entries
+    POST action=delete  → delete entry by id
+    POST action=clear   → clear all entries
+    POST action=rename  → rename entry by id
+    """
+    if request.method == "GET":
+        items = sorted(library.values(), key=lambda x: x["timestamp"], reverse=True)
+        return jsonify(items)
 
-@app.route("/api/library/<lib_id>", methods=["DELETE", "POST"])
-def delete_library_item(lib_id):
-    """Delete a library entry. Accepts DELETE or POST (for proxy compat)."""
-    entry = library.pop(lib_id, None)
-    if not entry:
-        return jsonify({"error": "Not found"}), 404
-    try:
-        Path(entry["output_path"]).unlink(missing_ok=True)
-    except Exception:
-        pass
-    return jsonify({"ok": True})
+    action = request.form.get("action", "")
+    lib_id = request.form.get("id", "")
 
-
-@app.route("/api/library/clear", methods=["POST"])
-def clear_library():
-    """Clear entire library."""
-    for entry in library.values():
+    if action == "delete":
+        entry = library.pop(lib_id, None)
+        if not entry:
+            return jsonify({"error": "Not found"}), 404
         try:
             Path(entry["output_path"]).unlink(missing_ok=True)
         except Exception:
             pass
-    library.clear()
-    return jsonify({"ok": True})
+        return jsonify({"ok": True})
 
+    elif action == "clear":
+        for entry in library.values():
+            try:
+                Path(entry["output_path"]).unlink(missing_ok=True)
+            except Exception:
+                pass
+        library.clear()
+        return jsonify({"ok": True})
 
-@app.route("/api/library/<lib_id>/rename", methods=["POST"])
-def rename_library_item(lib_id):
-    """Rename a library entry."""
-    entry = library.get(lib_id)
-    if not entry:
-        return jsonify({"error": "Not found"}), 404
-    new_name = (request.form.get("name") or "").strip()
-    if not new_name:
-        data = request.get_json(force=True, silent=True) or {}
-        new_name = data.get("name", "").strip()
-    if new_name:
-        if not new_name.endswith(".pdf"):
-            new_name += ".pdf"
-        entry["ocr_name"] = new_name
-    return jsonify({"ok": True, "name": entry["ocr_name"]})
+    elif action == "rename":
+        entry = library.get(lib_id)
+        if not entry:
+            return jsonify({"error": "Not found"}), 404
+        new_name = (request.form.get("name") or "").strip()
+        if new_name:
+            if not new_name.endswith(".pdf"):
+                new_name += ".pdf"
+            entry["ocr_name"] = new_name
+        return jsonify({"ok": True, "name": entry["ocr_name"]})
+
+    return jsonify({"error": "Unknown action"}), 400
 
 
 @app.route("/api/download/<lib_id>")

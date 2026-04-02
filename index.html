@@ -1224,7 +1224,8 @@ function libToggleAll() {
 
 function libConfirmDelete(id, name) {
   openModal('Delete this file?', `<strong>${name}</strong> will be permanently removed.`, async () => {
-    await fetch(`/api/library/${id}`, { method: 'DELETE' });
+    const f = new FormData(); f.append('action', 'delete'); f.append('id', id);
+    await fetch('/api/library', { method: 'POST', body: f });
     showToast('File deleted');
     renderLibrary(); updateLibBadge();
   });
@@ -1233,14 +1234,14 @@ function libDeleteSelected() {
   const ids = libGetChecked().map(cb => cb.value);
   if (!ids.length) return;
   openModal('Delete selected?', `<strong>${ids.length} file${ids.length !== 1 ? 's' : ''}</strong> will be removed.`, async () => {
-    for (const id of ids) await fetch(`/api/library/${id}`, { method: 'DELETE' });
+    for (const id of ids) { const f = new FormData(); f.append('action', 'delete'); f.append('id', id); await fetch('/api/library', { method: 'POST', body: f }); }
     showToast(`Deleted ${ids.length} file${ids.length !== 1 ? 's' : ''}`);
     renderLibrary(); updateLibBadge();
   });
 }
 function libConfirmClear() {
   openModal('Clear entire library?', 'All files will be permanently deleted.', async () => {
-    await fetch('/api/library/clear', { method: 'POST' });
+    const cf = new FormData(); cf.append('action', 'clear'); await fetch('/api/library', { method: 'POST', body: cf });
     showToast('Library cleared');
     renderLibrary(); updateLibBadge();
   });
