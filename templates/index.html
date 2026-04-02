@@ -842,10 +842,10 @@ async function uploadFile(f) {
 
   try {
     // Step 1: init
-    const initRes = await sendWithRetry('/api/upload/init', {
+    const initRes = await sendWithRetry('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: f.name, size: f.size }),
+      body: JSON.stringify({ action: 'init', filename: f.name, size: f.size }),
     }, MAX_RETRIES);
     if (initRes.error) throw new Error(initRes.error);
     const uploadId = initRes.upload_id;
@@ -866,11 +866,12 @@ async function uploadFile(f) {
       const blob = f.slice(start, end);
 
       const form = new FormData();
+      form.append('action', 'chunk');
       form.append('upload_id', uploadId);
       form.append('index', i.toString());
       form.append('chunk', blob);
 
-      const chunkRes = await sendWithRetry('/api/upload/chunk', {
+      const chunkRes = await sendWithRetry('/api/upload', {
         method: 'POST',
         body: form,
       }, MAX_RETRIES);
@@ -889,10 +890,10 @@ async function uploadFile(f) {
 
     // Step 3: complete — server assembles and validates the PDF
     document.getElementById('fileMeta').textContent = 'Processing file…';
-    const completeRes = await sendWithRetry('/api/upload/complete', {
+    const completeRes = await sendWithRetry('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ upload_id: uploadId }),
+      body: JSON.stringify({ action: 'complete', upload_id: uploadId }),
     }, MAX_RETRIES);
     if (completeRes.error) throw new Error(completeRes.error);
 
