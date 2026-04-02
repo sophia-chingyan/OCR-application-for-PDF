@@ -475,9 +475,8 @@ def _upload_single():
 
 def _upload_init():
     """Initialize a chunked upload session."""
-    data = request.get_json(force=True, silent=True) or {}
-    filename = data.get("filename", "")
-    total_size = data.get("size", 0)
+    filename = request.form.get("filename", "")
+    total_size = int(request.form.get("size", 0) or 0)
 
     if not filename.lower().endswith(".pdf"):
         return jsonify({"error": "Only PDF files are supported"}), 400
@@ -525,8 +524,7 @@ def _upload_chunk():
 
 def _upload_complete():
     """Assemble chunks into a final PDF and return file info."""
-    data = request.get_json(force=True, silent=True) or {}
-    upload_id = data.get("upload_id")
+    upload_id = request.form.get("upload_id")
 
     if not upload_id or upload_id not in uploads:
         return jsonify({"error": "Invalid upload_id"}), 400
