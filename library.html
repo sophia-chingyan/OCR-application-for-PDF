@@ -502,24 +502,24 @@
 
 <!-- Delete confirm modal -->
 <div class="modal-overlay" id="deleteModal">
-  <div class="modal">
+  <div class="modal" id="deleteModalBox">
     <h3>Delete file?</h3>
     <p id="deleteModalMsg">This will permanently remove the file from your library. The action cannot be undone.</p>
     <div class="modal-actions">
-      <button class="modal-cancel" id="deleteCancelBtn">Cancel</button>
-      <button class="modal-confirm" id="deleteConfirmBtn">Delete</button>
+      <button type="button" class="modal-cancel" id="deleteCancelBtn">Cancel</button>
+      <button type="button" class="modal-confirm" id="deleteConfirmBtn">Delete</button>
     </div>
   </div>
 </div>
 
 <!-- Clear all confirm modal -->
 <div class="modal-overlay" id="clearModal">
-  <div class="modal">
+  <div class="modal" id="clearModalBox">
     <h3>Clear entire library?</h3>
     <p>All <span id="clearCount">0</span> files will be permanently deleted. This cannot be undone.</p>
     <div class="modal-actions">
-      <button class="modal-cancel" id="clearCancelBtn">Cancel</button>
-      <button class="modal-confirm" id="clearConfirmBtn">Clear All</button>
+      <button type="button" class="modal-cancel" id="clearCancelBtn">Cancel</button>
+      <button type="button" class="modal-confirm" id="clearConfirmBtn">Clear All</button>
     </div>
   </div>
 </div>
@@ -532,7 +532,8 @@
 
 <script>
 // ── IndexedDB ──
-const IDB_NAME = 'scanlens_library';
+// FIX: Use the SAME database name and store as index.html so both pages share data
+const IDB_NAME = 'ScanLensLibrary';
 const IDB_STORE = 'files';
 const IDB_VERSION = 1;
 const FALLBACK_CACHE = 'scanlens_library_cache_v1';
@@ -540,7 +541,6 @@ const FALLBACK_META_KEY = 'scanlens_library_cache_meta_v1';
 
 let _db = null;
 
-// FIX: Always compare ids as strings to avoid type-mismatch silent failures
 function idsMatch(left, right) {
   return left != null && right != null && String(left) === String(right);
 }
@@ -553,7 +553,7 @@ function openDB() {
       const db = e.target.result;
       if (!db.objectStoreNames.contains(IDB_STORE)) {
         const store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
-        store.createIndex('addedAt', 'addedAt', { unique: false });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
       }
     };
     req.onsuccess = e => { _db = e.target.result; resolve(_db); };
@@ -578,12 +578,12 @@ function idbPut(record) {
   }));
 }
 
-// FIX: Accept the raw key value directly; caller is responsible for passing the correct key
 function idbDeleteByKey(key) {
   return openDB().then(db => new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).delete(key);
-    tx.oncomplete = resolve;
+    const store = tx.objectStore(IDB_STORE);
+    store.delete(key);
+    tx.oncomplete = () => resolve(true);
     tx.onerror = e => reject(e.target.error);
   }));
 }
@@ -668,11 +668,11 @@ async function fallbackClear() {
 // ── State ──
 let library = [];
 let currentView = 'grid';
-// FIX: store the full file record for deletion, not just the id,
-// so we still have all info after it's been removed from the array
 let deleteTargetRecord = null;
 let searchQuery = '';
 let sortMode = 'date-desc';
+// FIX: Flag to suppress rename blur handler when delete button is clicked
+let suppressBlur = false;
 
 // ── Persistence ──
 async function loadLibrary() {
@@ -680,8 +680,19 @@ async function loadLibrary() {
     const combined = [];
     try {
       const records = await idbGetAll();
-      combined.push(...records.map(r => ({ ...r, storage: r.storage || 'idb' })));
-    } catch (_) {}
+      // FIX: Normalize records from index.html's format to library.html's format
+      combined.push(...records.map(r => ({
+        id: r.id,
+        name: r.ocrName || r.name || 'Unknown.pdf',
+        size: r.sizeBytes || r.size || 0,
+        pages: r.pageCount || r.pages || null,
+        addedAt: r.timestamp || r.addedAt || Date.now(),
+        blob: r.blob || null,
+        storage: r.storage || 'idb',
+        // Preserve the original record so we can write it back correctly
+        _originalRecord: r,
+      })));
+    } catch (e) { console.error('IDB load error:', e); }
     try {
       const fallbackRecords = await loadFallbackRecords();
       combined.push(...fallbackRecords);
@@ -692,13 +703,14 @@ async function loadLibrary() {
   }
 }
 
-// FIX: Rewritten deleteFromStorage — capture target first, then remove from array,
-// then delete from the appropriate backing store using the original key.
 async function deleteFromStorage(id) {
   const target = library.find(f => idsMatch(f.id, id));
-  if (!target) return false;
+  if (!target) {
+    console.error('deleteFromStorage: target not found for id', id);
+    return false;
+  }
 
-  // Remove from in-memory array
+  // Remove from in-memory array first
   library = library.filter(f => !idsMatch(f.id, id));
 
   // Delete from backing store using the original id value (preserving its type)
@@ -828,6 +840,7 @@ function renderAll() {
 function makeCard(f) {
   const el = document.createElement('div');
   el.className = 'file-card';
+  el.dataset.fileId = f.id;
   el.innerHTML = `
     <div class="card-preview">
       <div class="pdf-icon"><span>PDF</span></div>
@@ -855,13 +868,23 @@ function makeCard(f) {
       </button>
     </div>
   `;
-  el.querySelector('[data-action="download"]').addEventListener('click', () => downloadFile(f.id));
-  el.querySelector('[data-action="rename"]').addEventListener('click', () => startRename(f.id));
-  // FIX: Use mousedown instead of click for delete to fire before blur on the rename input,
-  // preventing the rename blur handler from interfering with the delete action.
-  el.querySelector('[data-action="delete"]').addEventListener('mousedown', (e) => {
-    e.preventDefault(); // prevent focus-change / blur on any active rename input
+  el.querySelector('[data-action="download"]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    downloadFile(f.id);
+  });
+  el.querySelector('[data-action="rename"]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    startRename(f.id);
+  });
+  // FIX: Use click (not mousedown), and set suppressBlur flag to prevent rename blur
+  // from interfering with the delete flow
+  el.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    suppressBlur = true;
+    // Cancel any active rename first
+    cancelAllRenames();
     confirmDelete(f.id, f.name);
+    setTimeout(() => { suppressBlur = false; }, 100);
   });
 
   const input = el.querySelector(`#rename-${f.id}`);
@@ -869,13 +892,16 @@ function makeCard(f) {
     if (e.key === 'Enter') commitRename(f.id);
     if (e.key === 'Escape') cancelRename(f.id);
   });
-  input.addEventListener('blur', () => commitRename(f.id));
+  input.addEventListener('blur', () => {
+    if (!suppressBlur) commitRename(f.id);
+  });
   return el;
 }
 
 function makeRow(f) {
   const el = document.createElement('div');
   el.className = 'file-row';
+  el.dataset.fileId = f.id;
   el.innerHTML = `
     <div class="row-icon"><span>PDF</span></div>
     <div class="row-info">
@@ -903,12 +929,20 @@ function makeRow(f) {
       </button>
     </div>
   `;
-  el.querySelector('[data-action="download"]').addEventListener('click', () => downloadFile(f.id));
-  el.querySelector('[data-action="rename"]').addEventListener('click', () => startRename(f.id));
-  // FIX: Same mousedown fix for list-view rows
-  el.querySelector('[data-action="delete"]').addEventListener('mousedown', (e) => {
-    e.preventDefault();
+  el.querySelector('[data-action="download"]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    downloadFile(f.id);
+  });
+  el.querySelector('[data-action="rename"]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    startRename(f.id);
+  });
+  el.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    suppressBlur = true;
+    cancelAllRenames();
     confirmDelete(f.id, f.name);
+    setTimeout(() => { suppressBlur = false; }, 100);
   });
 
   const input = el.querySelector(`#rename-${f.id}`);
@@ -916,7 +950,9 @@ function makeRow(f) {
     if (e.key === 'Enter') commitRename(f.id);
     if (e.key === 'Escape') cancelRename(f.id);
   });
-  input.addEventListener('blur', () => commitRename(f.id));
+  input.addEventListener('blur', () => {
+    if (!suppressBlur) commitRename(f.id);
+  });
   return el;
 }
 
@@ -936,19 +972,26 @@ function downloadFile(id) {
   showToast(`Downloading "${f.name}"`, 'success');
 }
 
-// FIX: Accept name as a parameter so we capture it at call time (before any array mutation)
 function confirmDelete(id, name) {
-  // Store the full record so we still have it after the library array is mutated
-  deleteTargetRecord = library.find(x => idsMatch(x.id, id)) || { id, name: name || 'this file' };
+  // Store full record info for deletion
+  const found = library.find(x => idsMatch(x.id, id));
+  deleteTargetRecord = found ? { ...found } : { id, name: name || 'this file' };
   document.getElementById('deleteModalMsg').textContent =
     `This will permanently remove "${deleteTargetRecord.name}" from your library.`;
   document.getElementById('deleteModal').classList.add('visible');
 }
 
-function startRename(id) {
+function cancelAllRenames() {
   document.querySelectorAll('.rename-input.visible').forEach(inp => {
-    cancelRename(inp.id.replace('rename-', ''));
+    inp.classList.remove('visible');
+    const id = inp.id.replace('rename-', '');
+    const nameEl = document.getElementById('name-' + id);
+    if (nameEl) nameEl.classList.remove('editing');
   });
+}
+
+function startRename(id) {
+  cancelAllRenames();
   const nameEl = document.getElementById('name-' + id);
   const inputEl = document.getElementById('rename-' + id);
   if (!nameEl || !inputEl) return;
@@ -970,7 +1013,14 @@ function commitRename(id) {
       if (f.storage === 'cache') {
         fallbackUpdateMeta(f).catch(() => {});
       } else {
-        idbPut(f).catch(() => {});
+        // FIX: Write back the original record format with the updated name
+        const writeRecord = f._originalRecord ? { ...f._originalRecord } : { ...f };
+        if (writeRecord.ocrName !== undefined) {
+          writeRecord.ocrName = f.name;
+        } else {
+          writeRecord.name = f.name;
+        }
+        idbPut(writeRecord).catch(() => {});
       }
       showToast('Renamed', 'success');
     }
@@ -1003,37 +1053,64 @@ function showToast(msg, type = 'success') {
 }
 
 // ── Modal wiring ──
-document.getElementById('deleteCancelBtn').addEventListener('click', () => {
+
+// FIX: Close delete modal when clicking outside the modal box
+document.getElementById('deleteModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('deleteModal').classList.remove('visible');
+    deleteTargetRecord = null;
+  }
+});
+
+document.getElementById('deleteCancelBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
   document.getElementById('deleteModal').classList.remove('visible');
   deleteTargetRecord = null;
 });
 
-// FIX: Use the stored record (deleteTargetRecord) instead of re-searching the array,
-// which would fail after deleteFromStorage already removed the entry.
-document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
+// FIX: The confirm handler now properly captures the record before clearing state
+document.getElementById('deleteConfirmBtn').addEventListener('click', async (e) => {
+  e.stopPropagation();
   document.getElementById('deleteModal').classList.remove('visible');
   if (!deleteTargetRecord) return;
 
   const recordToDelete = deleteTargetRecord;
   deleteTargetRecord = null;
 
-  const deleted = await deleteFromStorage(recordToDelete.id);
-  if (deleted) {
-    showToast(`Deleted "${recordToDelete.name}"`, 'success');
-  } else {
-    showToast('File could not be deleted', 'error');
+  try {
+    const deleted = await deleteFromStorage(recordToDelete.id);
+    if (deleted) {
+      showToast(`Deleted "${recordToDelete.name}"`, 'success');
+    } else {
+      showToast('File could not be deleted', 'error');
+    }
+  } catch (e) {
+    console.error('Delete error:', e);
+    showToast('Error deleting file', 'error');
   }
   renderAll();
 });
 
-document.getElementById('clearCancelBtn').addEventListener('click', () =>
-  document.getElementById('clearModal').classList.remove('visible'));
-document.getElementById('clearConfirmBtn').addEventListener('click', async () => {
+// FIX: Close clear modal when clicking outside
+document.getElementById('clearModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('clearModal').classList.remove('visible');
+  }
+});
+
+document.getElementById('clearCancelBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('clearModal').classList.remove('visible');
+});
+
+document.getElementById('clearConfirmBtn').addEventListener('click', async (e) => {
+  e.stopPropagation();
   await clearStorage();
   renderAll();
   document.getElementById('clearModal').classList.remove('visible');
   showToast('Library cleared', 'success');
 });
+
 document.getElementById('clearAllBtn').addEventListener('click', () => {
   document.getElementById('clearCount').textContent = library.length;
   document.getElementById('clearModal').classList.add('visible');
