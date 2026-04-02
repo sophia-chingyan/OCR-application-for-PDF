@@ -10,6 +10,7 @@ import re
 import json
 import time
 import uuid
+import shutil
 import threading
 from pathlib import Path
 from datetime import datetime
@@ -29,7 +30,7 @@ from reportlab.lib.units import inch
 
 app = Flask(__name__)
 CORS(app)
-app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB upload limit
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB limit (legacy single-file upload)
 
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/tmp/scanlens/uploads"))
 OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", "/tmp/scanlens/outputs"))
@@ -40,6 +41,8 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 library: dict[str, dict] = {}
 # ── In-progress jobs ──
 jobs: dict[str, dict] = {}
+# ── Chunked upload tracking ──
+uploads: dict[str, dict] = {}
 
 # ── Language detection helpers ──
 TRA_CHARS = set("國學數與對這經區體發聯當會從點問機關個義處應實來將過還後給讓說時種為開黨質裡類書閱讀寫說語陽陰電龍鳳鷹號")
@@ -436,6 +439,103 @@ def upload_pdf():
     return jsonify({
         "file_id": file_id,
         "filename": file.filename,
+        "size": len(pdf_bytes),
+        "size_label": format_size(len(pdf_bytes)),
+        "page_count": page_count,
+    })
+
+
+@app.route("/api/upload/init", methods=["POST"])
+def upload_init():
+    """Initialize a chunked upload session."""
+    data = request.json or {}
+    filename = data.get("filename", "")
+    total_size = data.get("size", 0)
+
+    if not filename.lower().endswith(".pdf"):
+        return jsonify({"error": "Only PDF files are supported"}), 400
+    if total_size > 100 * 1024 * 1024:
+        return jsonify({"error": "File too large (max 100 MB)"}), 400
+
+    upload_id = uuid.uuid4().hex[:12]
+    chunk_dir = UPLOAD_DIR / f"chunks_{upload_id}"
+    chunk_dir.mkdir(parents=True, exist_ok=True)
+
+    uploads[upload_id] = {
+        "filename": filename,
+        "total_size": total_size,
+        "received": 0,
+        "chunk_count": 0,
+        "chunk_dir": str(chunk_dir),
+    }
+
+    return jsonify({"upload_id": upload_id})
+
+
+@app.route("/api/upload/chunk", methods=["POST"])
+def upload_chunk():
+    """Receive a single chunk of a file."""
+    upload_id = request.form.get("upload_id")
+    chunk_index = request.form.get("index")
+
+    if not upload_id or upload_id not in uploads:
+        return jsonify({"error": "Invalid upload_id"}), 400
+
+    if "chunk" not in request.files:
+        return jsonify({"error": "No chunk data"}), 400
+
+    info = uploads[upload_id]
+    chunk = request.files["chunk"]
+    chunk_data = chunk.read()
+
+    chunk_path = Path(info["chunk_dir"]) / f"{int(chunk_index):06d}"
+    chunk_path.write_bytes(chunk_data)
+
+    info["received"] += len(chunk_data)
+    info["chunk_count"] += 1
+
+    return jsonify({"ok": True, "received": info["received"]})
+
+
+@app.route("/api/upload/complete", methods=["POST"])
+def upload_complete():
+    """Assemble chunks into a final PDF and return file info."""
+    data = request.json or {}
+    upload_id = data.get("upload_id")
+
+    if not upload_id or upload_id not in uploads:
+        return jsonify({"error": "Invalid upload_id"}), 400
+
+    info = uploads[upload_id]
+    chunk_dir = Path(info["chunk_dir"])
+    chunk_files = sorted(chunk_dir.iterdir())
+
+    if not chunk_files:
+        return jsonify({"error": "No chunks received"}), 400
+
+    file_id = uuid.uuid4().hex[:12]
+    file_path = UPLOAD_DIR / f"{file_id}.pdf"
+
+    with open(file_path, "wb") as out:
+        for cf in chunk_files:
+            out.write(cf.read_bytes())
+
+    # Clean up chunks
+    shutil.rmtree(chunk_dir, ignore_errors=True)
+    del uploads[upload_id]
+
+    pdf_bytes = file_path.read_bytes()
+
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        page_count = len(reader.pages)
+    except Exception as e:
+        file_path.unlink(missing_ok=True)
+        return jsonify({"error": f"Could not read PDF: {e}"}), 400
+
+    return jsonify({
+        "file_id": file_id,
+        "filename": info["filename"],
         "size": len(pdf_bytes),
         "size_label": format_size(len(pdf_bytes)),
         "page_count": page_count,
