@@ -29,6 +29,7 @@ from reportlab.lib.units import inch
 
 app = Flask(__name__)
 CORS(app)
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB upload limit
 
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/tmp/scanlens/uploads"))
 OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", "/tmp/scanlens/outputs"))
@@ -395,6 +396,11 @@ def run_ocr_job(job_id: str, pdf_bytes: bytes, settings: dict):
 # ═══════════════════════════════════════════════════════════
 # Routes
 # ═══════════════════════════════════════════════════════════
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({"error": "File too large (max 100 MB)"}), 413
+
 
 @app.route("/")
 def index():
