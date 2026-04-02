@@ -841,11 +841,14 @@ async function uploadFile(f) {
   document.getElementById('startBtn').textContent = 'Uploading…';
 
   try {
-    // Step 1: init
+    // Step 1: init (use FormData to avoid CORS preflight from JSON content-type)
+    const initForm = new FormData();
+    initForm.append('action', 'init');
+    initForm.append('filename', f.name);
+    initForm.append('size', f.size.toString());
     const initRes = await sendWithRetry('/api/upload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'init', filename: f.name, size: f.size }),
+      body: initForm,
     }, MAX_RETRIES);
     if (initRes.error) throw new Error(initRes.error);
     const uploadId = initRes.upload_id;
@@ -888,12 +891,14 @@ async function uploadFile(f) {
       return;
     }
 
-    // Step 3: complete — server assembles and validates the PDF
+    // Step 3: complete (use FormData to avoid CORS preflight)
     document.getElementById('fileMeta').textContent = 'Processing file…';
+    const completeForm = new FormData();
+    completeForm.append('action', 'complete');
+    completeForm.append('upload_id', uploadId);
     const completeRes = await sendWithRetry('/api/upload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'complete', upload_id: uploadId }),
+      body: completeForm,
     }, MAX_RETRIES);
     if (completeRes.error) throw new Error(completeRes.error);
 
