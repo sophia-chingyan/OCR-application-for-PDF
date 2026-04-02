@@ -752,6 +752,7 @@ fileInput.addEventListener('change', e => { if (!uploading && e.target.files[0])
 
 document.getElementById('fileRemove').addEventListener('click', () => {
   if (uploadXHR) { uploadXHR.abort(); uploadXHR = null; }
+  uploadCancelled = true;
   uploading = false;
   fileId = null; totalPages = 0; selectedPages.clear();
   document.getElementById('fileInfo').classList.remove('visible');
@@ -762,11 +763,56 @@ document.getElementById('fileRemove').addEventListener('click', () => {
   fileInput.value = '';
 });
 
-// ═══════ UPLOAD ═══════
-function uploadFile(f) {
+// ═══════ UPLOAD (chunked) ═══════
+const CHUNK_SIZE = 512 * 1024; // 512 KB per chunk — stays under reverse proxy limits
+const MAX_RETRIES = 3;
+let uploadCancelled = false;
+
+function uploadFail(msg) {
+  uploading = false;
+  uploadXHR = null;
+  document.getElementById('fileMeta').textContent = 'Upload failed: ' + msg;
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('startBtn').textContent = 'Select a PDF to begin';
+}
+
+function uploadSuccess(data) {
+  uploading = false;
+  uploadXHR = null;
+  fileId = data.file_id;
+  totalPages = data.page_count;
+  document.getElementById('fileMeta').textContent =
+    `${data.size_label} · ${totalPages} page${totalPages > 1 ? 's' : ''}`;
+  setupPageRange();
+  document.getElementById('pageRangeSection').classList.add('visible');
+  setMode('all');
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('startBtn').textContent = `Start OCR — ${totalPages} page${totalPages > 1 ? 's' : ''}`;
+}
+
+async function sendChunk(url, body, retries) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, { method: 'POST', body });
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = `Server error (${res.status})`;
+        try { const d = JSON.parse(text); if (d.error) msg = d.error; } catch(e) {}
+        if (attempt === retries) throw new Error(msg);
+      } else {
+        return await res.json();
+      }
+    } catch (err) {
+      if (attempt === retries) throw err;
+    }
+    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+  }
+}
+
+async function uploadFile(f) {
   if (uploading) return;
 
-  const maxSize = 100 * 1024 * 1024; // 100 MB client-side limit
+  const maxSize = 100 * 1024 * 1024;
   if (f.size > maxSize) {
     document.getElementById('fileName').textContent = f.name;
     document.getElementById('fileMeta').textContent = 'File too large (max 100 MB)';
@@ -776,6 +822,7 @@ function uploadFile(f) {
   }
 
   uploading = true;
+  uploadCancelled = false;
   fileId = null;
   document.getElementById('fileName').textContent = f.name;
   document.getElementById('fileMeta').textContent = 'Uploading… 0%';
@@ -785,84 +832,67 @@ function uploadFile(f) {
   document.getElementById('startBtn').disabled = true;
   document.getElementById('startBtn').textContent = 'Uploading…';
 
-  const form = new FormData();
-  form.append('file', f);
+  try {
+    // Step 1: init
+    const initRes = await fetch('/api/upload/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: f.name, size: f.size }),
+    }).then(r => r.json());
+    if (initRes.error) throw new Error(initRes.error);
+    const uploadId = initRes.upload_id;
 
-  const xhr = new XMLHttpRequest();
-  uploadXHR = xhr;
-  const UPLOAD_TIMEOUT = 120000; // 2-minute timeout
+    // Step 2: send chunks
+    const totalChunks = Math.ceil(f.size / CHUNK_SIZE);
+    let sent = 0;
 
-  xhr.upload.addEventListener('progress', function(e) {
-    if (e.lengthComputable) {
-      const pct = Math.round((e.loaded / e.total) * 100);
-      document.getElementById('fileMeta').textContent = pct < 100
-        ? `Uploading… ${pct}%`
-        : 'Processing file…';
-    }
-  });
-
-  xhr.addEventListener('load', function() {
-    uploading = false;
-    uploadXHR = null;
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        const data = JSON.parse(xhr.responseText);
-        if (data.error) {
-          document.getElementById('fileMeta').textContent = 'Upload failed: ' + data.error;
-          document.getElementById('startBtn').disabled = true;
-          document.getElementById('startBtn').textContent = 'Select a PDF to begin';
-          return;
-        }
-        fileId = data.file_id;
-        totalPages = data.page_count;
-        document.getElementById('fileMeta').textContent =
-          `${data.size_label} · ${totalPages} page${totalPages > 1 ? 's' : ''}`;
-        setupPageRange();
-        document.getElementById('pageRangeSection').classList.add('visible');
-        setMode('all');
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('startBtn').textContent = `Start OCR — ${totalPages} page${totalPages > 1 ? 's' : ''}`;
-      } catch (e) {
-        document.getElementById('fileMeta').textContent = 'Upload failed: invalid server response';
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('startBtn').textContent = 'Select a PDF to begin';
+    for (let i = 0; i < totalChunks; i++) {
+      if (uploadCancelled) {
+        document.getElementById('fileMeta').textContent = 'Upload cancelled';
+        uploading = false;
+        return;
       }
-    } else {
-      let msg = `Server error (${xhr.status})`;
-      try { const d = JSON.parse(xhr.responseText); if (d.error) msg = d.error; } catch(e) {}
-      document.getElementById('fileMeta').textContent = 'Upload failed: ' + msg;
-      document.getElementById('startBtn').disabled = true;
-      document.getElementById('startBtn').textContent = 'Select a PDF to begin';
+
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, f.size);
+      const blob = f.slice(start, end);
+
+      const form = new FormData();
+      form.append('upload_id', uploadId);
+      form.append('index', i.toString());
+      form.append('chunk', blob);
+
+      const chunkRes = await sendChunk('/api/upload/chunk', form, MAX_RETRIES);
+      if (chunkRes.error) throw new Error(chunkRes.error);
+
+      sent += (end - start);
+      const pct = Math.round((sent / f.size) * 100);
+      document.getElementById('fileMeta').textContent = `Uploading… ${pct}%`;
     }
-  });
 
-  xhr.addEventListener('error', function() {
-    uploading = false;
-    uploadXHR = null;
-    document.getElementById('fileMeta').textContent = 'Upload failed: network error';
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('startBtn').textContent = 'Select a PDF to begin';
-  });
+    if (uploadCancelled) {
+      document.getElementById('fileMeta').textContent = 'Upload cancelled';
+      uploading = false;
+      return;
+    }
 
-  xhr.addEventListener('timeout', function() {
-    uploading = false;
-    uploadXHR = null;
-    document.getElementById('fileMeta').textContent = 'Upload failed: request timed out';
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('startBtn').textContent = 'Select a PDF to begin';
-  });
+    // Step 3: complete — server assembles and validates the PDF
+    document.getElementById('fileMeta').textContent = 'Processing file…';
+    const completeRes = await fetch('/api/upload/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ upload_id: uploadId }),
+    }).then(async r => {
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || `Server error (${r.status})`);
+      return d;
+    });
+    if (completeRes.error) throw new Error(completeRes.error);
 
-  xhr.addEventListener('abort', function() {
-    uploading = false;
-    uploadXHR = null;
-    document.getElementById('fileMeta').textContent = 'Upload cancelled';
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('startBtn').textContent = 'Select a PDF to begin';
-  });
-
-  xhr.open('POST', '/api/upload');
-  xhr.timeout = UPLOAD_TIMEOUT;
-  xhr.send(form);
+    uploadSuccess(completeRes);
+  } catch (err) {
+    if (!uploadCancelled) uploadFail(err.message);
+  }
 }
 
 // ═══════ PAGE RANGE ═══════
