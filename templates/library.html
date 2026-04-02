@@ -549,24 +549,28 @@ async function fetchLibrary() {
 }
 
 async function deleteFromServer(id) {
-  const res = await fetch(`/api/library/${id}`, { method: 'POST' });
+  const form = new FormData();
+  form.append('action', 'delete');
+  form.append('id', id);
+  const res = await fetch('/api/library', { method: 'POST', body: form });
   if (!res.ok) throw new Error('Failed to delete');
   return await res.json();
 }
 
 async function clearOnServer() {
-  const res = await fetch('/api/library/clear', { method: 'POST' });
+  const form = new FormData();
+  form.append('action', 'clear');
+  const res = await fetch('/api/library', { method: 'POST', body: form });
   if (!res.ok) throw new Error('Failed to clear library');
   return await res.json();
 }
 
 async function renameOnServer(id, newName) {
   const form = new FormData();
+  form.append('action', 'rename');
+  form.append('id', id);
   form.append('name', newName);
-  const res = await fetch(`/api/library/${id}/rename`, {
-    method: 'POST',
-    body: form,
-  });
+  const res = await fetch('/api/library', { method: 'POST', body: form });
   if (!res.ok) throw new Error('Failed to rename');
   return await res.json();
 }
