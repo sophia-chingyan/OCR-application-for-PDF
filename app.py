@@ -423,7 +423,29 @@ def library_page():
 
 @app.route("/api/upload", methods=["POST"])
 def upload_pdf():
-    """Upload a PDF and get page count info."""
+    """Unified upload endpoint — dispatches by 'action' field.
+
+    action=init     → start a chunked upload session
+    action=chunk    → receive a single chunk
+    action=complete → assemble chunks into final PDF
+    (no action)     → legacy single-request upload
+    """
+    action = request.form.get("action") or (
+        request.get_json(force=True, silent=True) or {}
+    ).get("action")
+
+    if action == "init":
+        return _upload_init()
+    elif action == "chunk":
+        return _upload_chunk()
+    elif action == "complete":
+        return _upload_complete()
+    else:
+        return _upload_single()
+
+
+def _upload_single():
+    """Legacy single-request upload for small files."""
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
@@ -451,8 +473,7 @@ def upload_pdf():
     })
 
 
-@app.route("/api/upload/init", methods=["POST"])
-def upload_init():
+def _upload_init():
     """Initialize a chunked upload session."""
     data = request.get_json(force=True, silent=True) or {}
     filename = data.get("filename", "")
@@ -478,8 +499,7 @@ def upload_init():
     return jsonify({"upload_id": upload_id})
 
 
-@app.route("/api/upload/chunk", methods=["POST"])
-def upload_chunk():
+def _upload_chunk():
     """Receive a single chunk of a file."""
     upload_id = request.form.get("upload_id")
     chunk_index = request.form.get("index")
@@ -503,8 +523,7 @@ def upload_chunk():
     return jsonify({"ok": True, "received": info["received"]})
 
 
-@app.route("/api/upload/complete", methods=["POST"])
-def upload_complete():
+def _upload_complete():
     """Assemble chunks into a final PDF and return file info."""
     data = request.get_json(force=True, silent=True) or {}
     upload_id = data.get("upload_id")
@@ -526,7 +545,6 @@ def upload_complete():
         for cf in chunk_files:
             out.write(cf.read_bytes())
 
-    # Clean up chunks
     shutil.rmtree(chunk_dir, ignore_errors=True)
     del uploads[upload_id]
 
