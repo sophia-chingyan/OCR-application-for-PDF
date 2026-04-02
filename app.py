@@ -520,9 +520,28 @@ def _handle_chunk():
 
 @app.route("/api/ocr/start", methods=["POST"])
 def start_ocr():
-    """Start an OCR job."""
-    data = request.get_json(force=True, silent=True) or {}
-    file_id = data.get("file_id")
+    """Start an OCR job. Accepts form data or JSON."""
+    if request.form.get("file_id"):
+        file_id = request.form.get("file_id")
+        lang = request.form.get("lang", "auto")
+        dpi = int(request.form.get("dpi", 150) or 150)
+        enhance_val = request.form.get("enhance", "1")
+        enhance = enhance_val not in ("0", "false", "False")
+        pages_raw = request.form.get("pages", "[]")
+        try:
+            pages = json.loads(pages_raw)
+        except (json.JSONDecodeError, TypeError):
+            pages = []
+        filename = request.form.get("filename", "document.pdf")
+    else:
+        data = request.get_json(force=True, silent=True) or {}
+        file_id = data.get("file_id")
+        lang = data.get("lang", "auto")
+        dpi = data.get("dpi", 150)
+        enhance = data.get("enhance", True)
+        pages = data.get("pages", [])
+        filename = data.get("filename", "document.pdf")
+
     if not file_id:
         return jsonify({"error": "Missing file_id"}), 400
 
@@ -534,11 +553,11 @@ def start_ocr():
     job_id = uuid.uuid4().hex[:12]
 
     settings = {
-        "lang": data.get("lang", "auto"),
-        "dpi": data.get("dpi", 150),
-        "enhance": data.get("enhance", True),
-        "pages": data.get("pages", []),
-        "filename": data.get("filename", "document.pdf"),
+        "lang": lang,
+        "dpi": dpi,
+        "enhance": enhance,
+        "pages": pages,
+        "filename": filename,
     }
 
     # If no pages specified, process all
@@ -598,9 +617,9 @@ def get_library():
     return jsonify(items)
 
 
-@app.route("/api/library/<lib_id>", methods=["DELETE"])
+@app.route("/api/library/<lib_id>", methods=["DELETE", "POST"])
 def delete_library_item(lib_id):
-    """Delete a library entry."""
+    """Delete a library entry. Accepts DELETE or POST (for proxy compat)."""
     entry = library.pop(lib_id, None)
     if not entry:
         return jsonify({"error": "Not found"}), 404
@@ -629,7 +648,10 @@ def rename_library_item(lib_id):
     entry = library.get(lib_id)
     if not entry:
         return jsonify({"error": "Not found"}), 404
-    new_name = request.json.get("name", "").strip()
+    new_name = (request.form.get("name") or "").strip()
+    if not new_name:
+        data = request.get_json(force=True, silent=True) or {}
+        new_name = data.get("name", "").strip()
     if new_name:
         if not new_name.endswith(".pdf"):
             new_name += ".pdf"

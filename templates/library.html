@@ -549,7 +549,7 @@ async function fetchLibrary() {
 }
 
 async function deleteFromServer(id) {
-  const res = await fetch(`/api/library/${id}`, { method: 'DELETE' });
+  const res = await fetch(`/api/library/${id}`, { method: 'POST' });
   if (!res.ok) throw new Error('Failed to delete');
   return await res.json();
 }
@@ -561,10 +561,11 @@ async function clearOnServer() {
 }
 
 async function renameOnServer(id, newName) {
+  const form = new FormData();
+  form.append('name', newName);
   const res = await fetch(`/api/library/${id}/rename`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: newName }),
+    body: form,
   });
   if (!res.ok) throw new Error('Failed to rename');
   return await res.json();
