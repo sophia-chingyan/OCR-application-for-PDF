@@ -763,14 +763,13 @@ document.getElementById('fileRemove').addEventListener('click', () => {
   fileInput.value = '';
 });
 
-// ═══════ UPLOAD (chunked) ═══════
-const CHUNK_SIZE = 512 * 1024; // 512 KB per chunk — stays under reverse proxy limits
+// ═══════ UPLOAD ═══════
+const CHUNK_SIZE = 512 * 1024; // 512 KB — each chunk is a normal file upload
 const MAX_RETRIES = 3;
 let uploadCancelled = false;
 
 function uploadFail(msg) {
   uploading = false;
-  uploadXHR = null;
   document.getElementById('fileMeta').textContent = 'Upload failed: ' + msg;
   document.getElementById('startBtn').disabled = true;
   document.getElementById('startBtn').textContent = 'Select a PDF to begin';
@@ -778,7 +777,6 @@ function uploadFail(msg) {
 
 function uploadSuccess(data) {
   uploading = false;
-  uploadXHR = null;
   fileId = data.file_id;
   totalPages = data.page_count;
   document.getElementById('fileMeta').textContent =
@@ -790,27 +788,21 @@ function uploadSuccess(data) {
   document.getElementById('startBtn').textContent = `Start OCR — ${totalPages} page${totalPages > 1 ? 's' : ''}`;
 }
 
-async function safeJson(res) {
+async function postUpload(form) {
+  const res = await fetch('/api/upload', { method: 'POST', body: form });
   const text = await res.text();
   if (!text) throw new Error(res.ok ? 'Empty server response' : `Server error (${res.status})`);
-  try {
-    const data = JSON.parse(text);
-    if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
-    return data;
-  } catch (e) {
-    if (e instanceof SyntaxError) {
-      throw new Error(res.ok ? 'Invalid server response' : `Server error (${res.status})`);
-    }
-    throw e;
+  let data;
+  try { data = JSON.parse(text); } catch (e) {
+    throw new Error(res.ok ? 'Invalid server response' : `Server error (${res.status})`);
   }
+  if (!res.ok || data.error) throw new Error(data.error || `Server error (${res.status})`);
+  return data;
 }
 
-async function sendWithRetry(url, opts, retries) {
+async function postUploadRetry(form, retries) {
   for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(url, opts);
-      return await safeJson(res);
-    } catch (err) {
+    try { return await postUpload(form); } catch (err) {
       if (attempt === retries) throw err;
     }
     await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
@@ -841,21 +833,9 @@ async function uploadFile(f) {
   document.getElementById('startBtn').textContent = 'Uploading…';
 
   try {
-    // Step 1: init (use FormData to avoid CORS preflight from JSON content-type)
-    const initForm = new FormData();
-    initForm.append('action', 'init');
-    initForm.append('filename', f.name);
-    initForm.append('size', f.size.toString());
-    const initRes = await sendWithRetry('/api/upload', {
-      method: 'POST',
-      body: initForm,
-    }, MAX_RETRIES);
-    if (initRes.error) throw new Error(initRes.error);
-    const uploadId = initRes.upload_id;
-
-    // Step 2: send chunks
     const totalChunks = Math.ceil(f.size / CHUNK_SIZE);
-    let sent = 0;
+    const uploadId = Math.random().toString(36).slice(2, 14);
+    let lastRes = null;
 
     for (let i = 0; i < totalChunks; i++) {
       if (uploadCancelled) {
@@ -869,20 +849,17 @@ async function uploadFile(f) {
       const blob = f.slice(start, end);
 
       const form = new FormData();
-      form.append('action', 'chunk');
+      form.append('file', blob, f.name);
       form.append('upload_id', uploadId);
-      form.append('index', i.toString());
-      form.append('chunk', blob);
+      form.append('chunk_index', i.toString());
+      form.append('total_chunks', totalChunks.toString());
+      form.append('filename', f.name);
 
-      const chunkRes = await sendWithRetry('/api/upload', {
-        method: 'POST',
-        body: form,
-      }, MAX_RETRIES);
-      if (chunkRes.error) throw new Error(chunkRes.error);
+      lastRes = await postUploadRetry(form, MAX_RETRIES);
 
-      sent += (end - start);
-      const pct = Math.round((sent / f.size) * 100);
-      document.getElementById('fileMeta').textContent = `Uploading… ${pct}%`;
+      const pct = Math.round(((i + 1) / totalChunks) * 100);
+      document.getElementById('fileMeta').textContent =
+        (i === totalChunks - 1) ? 'Processing file…' : `Uploading… ${pct}%`;
     }
 
     if (uploadCancelled) {
@@ -891,18 +868,7 @@ async function uploadFile(f) {
       return;
     }
 
-    // Step 3: complete (use FormData to avoid CORS preflight)
-    document.getElementById('fileMeta').textContent = 'Processing file…';
-    const completeForm = new FormData();
-    completeForm.append('action', 'complete');
-    completeForm.append('upload_id', uploadId);
-    const completeRes = await sendWithRetry('/api/upload', {
-      method: 'POST',
-      body: completeForm,
-    }, MAX_RETRIES);
-    if (completeRes.error) throw new Error(completeRes.error);
-
-    uploadSuccess(completeRes);
+    uploadSuccess(lastRes);
   } catch (err) {
     if (!uploadCancelled) uploadFail(err.message);
   }

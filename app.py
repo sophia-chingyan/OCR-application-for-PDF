@@ -423,32 +423,27 @@ def library_page():
 
 @app.route("/api/upload", methods=["POST"])
 def upload_pdf():
-    """Unified upload endpoint — dispatches by 'action' field.
+    """Upload a PDF — supports both single-request and chunked uploads.
 
-    action=init     → start a chunked upload session
-    action=chunk    → receive a single chunk
-    action=complete → assemble chunks into final PDF
-    (no action)     → legacy single-request upload
+    Every request looks like a normal file upload with a 'file' field.
+    Chunked mode is detected by the presence of 'chunk_index' form field.
+
+    Single upload:   FormData { file }
+    Chunked upload:  FormData { file, upload_id, chunk_index, total_chunks, filename }
     """
-    action = request.form.get("action") or (
-        request.get_json(force=True, silent=True) or {}
-    ).get("action")
-
-    if action == "init":
-        return _upload_init()
-    elif action == "chunk":
-        return _upload_chunk()
-    elif action == "complete":
-        return _upload_complete()
-    else:
-        return _upload_single()
-
-
-def _upload_single():
-    """Legacy single-request upload for small files."""
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
+    chunk_index = request.form.get("chunk_index")
+
+    if chunk_index is not None:
+        return _handle_chunk()
+    else:
+        return _handle_single()
+
+
+def _handle_single():
+    """Process a complete PDF uploaded in one request."""
     file = request.files["file"]
     if not file.filename.lower().endswith(".pdf"):
         return jsonify({"error": "Only PDF files are supported"}), 400
@@ -473,69 +468,29 @@ def _upload_single():
     })
 
 
-def _upload_init():
-    """Initialize a chunked upload session."""
-    filename = request.form.get("filename", "")
-    total_size = int(request.form.get("size", 0) or 0)
+def _handle_chunk():
+    """Store one chunk. On last chunk, assemble the full PDF."""
+    upload_id = request.form.get("upload_id", "")
+    chunk_index = int(request.form.get("chunk_index", 0))
+    total_chunks = int(request.form.get("total_chunks", 1))
+    filename = request.form.get("filename", "upload.pdf")
 
-    if not filename.lower().endswith(".pdf"):
-        return jsonify({"error": "Only PDF files are supported"}), 400
-    if total_size > 100 * 1024 * 1024:
-        return jsonify({"error": "File too large (max 100 MB)"}), 400
+    if not upload_id:
+        return jsonify({"error": "Missing upload_id"}), 400
 
-    upload_id = uuid.uuid4().hex[:12]
     chunk_dir = UPLOAD_DIR / f"chunks_{upload_id}"
     chunk_dir.mkdir(parents=True, exist_ok=True)
 
-    uploads[upload_id] = {
-        "filename": filename,
-        "total_size": total_size,
-        "received": 0,
-        "chunk_count": 0,
-        "chunk_dir": str(chunk_dir),
-    }
-
-    return jsonify({"upload_id": upload_id})
-
-
-def _upload_chunk():
-    """Receive a single chunk of a file."""
-    upload_id = request.form.get("upload_id")
-    chunk_index = request.form.get("index")
-
-    if not upload_id or upload_id not in uploads:
-        return jsonify({"error": "Invalid upload_id"}), 400
-
-    if "chunk" not in request.files:
-        return jsonify({"error": "No chunk data"}), 400
-
-    info = uploads[upload_id]
-    chunk = request.files["chunk"]
-    chunk_data = chunk.read()
-
-    chunk_path = Path(info["chunk_dir"]) / f"{int(chunk_index):06d}"
+    chunk_data = request.files["file"].read()
+    chunk_path = chunk_dir / f"{chunk_index:06d}"
     chunk_path.write_bytes(chunk_data)
 
-    info["received"] += len(chunk_data)
-    info["chunk_count"] += 1
+    # Not the last chunk — just acknowledge
+    if chunk_index < total_chunks - 1:
+        return jsonify({"ok": True, "chunk_index": chunk_index})
 
-    return jsonify({"ok": True, "received": info["received"]})
-
-
-def _upload_complete():
-    """Assemble chunks into a final PDF and return file info."""
-    upload_id = request.form.get("upload_id")
-
-    if not upload_id or upload_id not in uploads:
-        return jsonify({"error": "Invalid upload_id"}), 400
-
-    info = uploads[upload_id]
-    chunk_dir = Path(info["chunk_dir"])
+    # Last chunk — assemble the file
     chunk_files = sorted(chunk_dir.iterdir())
-
-    if not chunk_files:
-        return jsonify({"error": "No chunks received"}), 400
-
     file_id = uuid.uuid4().hex[:12]
     file_path = UPLOAD_DIR / f"{file_id}.pdf"
 
@@ -544,7 +499,6 @@ def _upload_complete():
             out.write(cf.read_bytes())
 
     shutil.rmtree(chunk_dir, ignore_errors=True)
-    del uploads[upload_id]
 
     pdf_bytes = file_path.read_bytes()
 
@@ -557,7 +511,7 @@ def _upload_complete():
 
     return jsonify({
         "file_id": file_id,
-        "filename": info["filename"],
+        "filename": filename,
         "size": len(pdf_bytes),
         "size_label": format_size(len(pdf_bytes)),
         "page_count": page_count,
