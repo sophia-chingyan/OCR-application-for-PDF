@@ -35,4 +35,5 @@ RUN mkdir -p /tmp/scanlens/uploads /tmp/scanlens/outputs
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "300", "app:app"]
+# ── Use 1 worker to keep in-memory state consistent ──
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "8", "--timeout", "300", "app:app"]
